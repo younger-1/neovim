@@ -1719,6 +1719,8 @@ function M.open_floating_preview(contents, syntax, opts)
   end
   -- disable folding
   vim.wo[floating_winnr].foldenable = false
+  -- disable signcolumn
+  api.nvim_win_set_option(floating_winnr, 'signcolumn', 'no')
   -- soft wrapping
   vim.wo[floating_winnr].wrap = opts.wrap
 
