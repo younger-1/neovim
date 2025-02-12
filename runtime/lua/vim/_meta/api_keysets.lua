@@ -88,6 +88,7 @@ error('Cannot require a meta file')
 --- @field pattern? string|string[]
 
 --- @class vim.api.keyset.echo_opts
+--- @field err? boolean
 --- @field verbose? boolean
 
 --- @class vim.api.keyset.empty
@@ -116,6 +117,7 @@ error('Cannot require a meta file')
 --- @field group? integer|string
 --- @field pattern? string|string[]
 --- @field buffer? integer|integer[]
+--- @field id? integer
 
 --- @class vim.api.keyset.get_commands
 --- @field builtin? boolean
@@ -227,10 +229,10 @@ error('Cannot require a meta file')
 --- @field do_source? boolean
 
 --- @class vim.api.keyset.set_decoration_provider
---- @field on_start? fun(_: "start", tick: integer)
+--- @field on_start? fun(_: "start", tick: integer): boolean?
 --- @field on_buf? fun(_: "buf", bufnr: integer, tick: integer)
---- @field on_win? fun(_: "win", winid: integer, bufnr: integer, toprow: integer, botrow: integer)
---- @field on_line? fun(_: "line", winid: integer, bufnr: integer, row: integer)
+--- @field on_win? fun(_: "win", winid: integer, bufnr: integer, toprow: integer, botrow: integer): boolean?
+--- @field on_line? fun(_: "line", winid: integer, bufnr: integer, row: integer): boolean?
 --- @field on_end? fun(_: "end", tick: integer)
 --- @field _on_hl_def? fun(_: "hl_def")
 --- @field _on_spell_nav? fun(_: "spell_nav")
@@ -240,7 +242,7 @@ error('Cannot require a meta file')
 --- @field end_line? integer
 --- @field end_row? integer
 --- @field end_col? integer
---- @field hl_group? integer|string
+--- @field hl_group? any
 --- @field virt_text? any[]
 --- @field virt_text_pos? string
 --- @field virt_text_win_col? integer

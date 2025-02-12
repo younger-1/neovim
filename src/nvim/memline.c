@@ -1860,7 +1860,7 @@ int gchar_pos(pos_T *pos)
   FUNC_ATTR_NONNULL_ARG(1)
 {
   // When searching columns is sometimes put at the end of a line.
-  if (pos->col == MAXCOL) {
+  if (pos->col == MAXCOL || pos->col > ml_get_len(pos->lnum)) {
     return NUL;
   }
   return utf_ptr2char(ml_get_pos(pos));
@@ -1874,6 +1874,11 @@ static char *ml_get_buf_impl(buf_T *buf, linenr_T lnum, bool will_change)
 {
   static int recursive = 0;
   static char questions[4];
+
+  if (buf->b_ml.ml_mfp == NULL) {       // there are no lines
+    buf->b_ml.ml_line_len = 1;
+    return "";
+  }
 
   if (lnum > buf->b_ml.ml_line_count) {  // invalid line number
     if (recursive == 0) {
@@ -1891,11 +1896,6 @@ errorret:
     return questions;
   }
   lnum = MAX(lnum, 1);  // pretend line 0 is line 1
-
-  if (buf->b_ml.ml_mfp == NULL) {       // there are no lines
-    buf->b_ml.ml_line_len = 1;
-    return "";
-  }
 
   // See if it is the same line as requested last time.
   // Otherwise may need to flush last used line.

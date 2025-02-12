@@ -15,8 +15,8 @@
 // actual Decor* data is in decoration_defs.h
 
 /// Keep in sync with VirtTextPos in decoration_defs.h
-EXTERN const char *const virt_text_pos_str[]
-INIT( = { "eol", "overlay", "win_col", "right_align", "inline" });
+EXTERN const char *const virt_text_pos_str[] INIT( = { "eol", "eol_right_align", "inline",
+                                                       "overlay", "right_align", "win_col" });
 
 /// Keep in sync with HlMode in decoration_defs.h
 EXTERN const char *const hl_mode_str[] INIT( = { "", "replace", "combine", "blend" });
@@ -96,6 +96,7 @@ typedef struct {
   TriState spell;
 
   bool running_decor_provider;
+  bool itr_valid;
 } DecorState;
 
 EXTERN DecorState decor_state INIT( = { 0 });

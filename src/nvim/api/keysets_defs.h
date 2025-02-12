@@ -13,10 +13,11 @@ typedef struct {
 
 typedef struct {
   OptionalKeys is_set__set_decoration_provider_;
-  LuaRefOf(("start" _, Integer tick)) on_start;
+  LuaRefOf(("start" _, Integer tick), *Boolean) on_start;
   LuaRefOf(("buf" _, Integer bufnr, Integer tick)) on_buf;
-  LuaRefOf(("win" _, Integer winid, Integer bufnr, Integer toprow, Integer botrow)) on_win;
-  LuaRefOf(("line" _, Integer winid, Integer bufnr, Integer row)) on_line;
+  LuaRefOf(("win" _, Integer winid, Integer bufnr, Integer toprow, Integer botrow),
+           *Boolean) on_win;
+  LuaRefOf(("line" _, Integer winid, Integer bufnr, Integer row), *Boolean) on_line;
   LuaRefOf(("end" _, Integer tick)) on_end;
   LuaRefOf(("hl_def" _)) _on_hl_def;
   LuaRefOf(("spell_nav" _)) _on_spell_nav;
@@ -28,7 +29,7 @@ typedef struct {
   Integer end_line;
   Integer end_row;
   Integer end_col;
-  HLGroupID hl_group;
+  Object hl_group;
   Array virt_text;
   String virt_text_pos;
   Integer virt_text_win_col;
@@ -262,6 +263,7 @@ typedef struct {
   Union(Integer, String) group;
   Union(String, ArrayOf(String)) pattern;
   Union(Integer, ArrayOf(Integer)) buffer;
+  Integer id;
 } Dict(get_autocmds);
 
 typedef struct {
@@ -325,6 +327,7 @@ typedef struct {
 } Dict(cmd_opts);
 
 typedef struct {
+  Boolean err;
   Boolean verbose;
 } Dict(echo_opts);
 

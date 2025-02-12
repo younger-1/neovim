@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "nvim/api/buffer.h"
 #include "nvim/api/private/defs.h"
 #include "nvim/api/private/helpers.h"
 #include "nvim/ascii_defs.h"
@@ -32,6 +33,7 @@
 #include "nvim/highlight_defs.h"
 #include "nvim/insexpand.h"
 #include "nvim/keycodes.h"
+#include "nvim/mark.h"
 #include "nvim/mbyte.h"
 #include "nvim/memline.h"
 #include "nvim/memory.h"
@@ -410,7 +412,7 @@ void pum_display(pumitem_T *array, int size, int selected, bool array_changed, i
 /// Returns attributes for every cell, or NULL if all attributes are the same.
 static int *pum_compute_text_attrs(char *text, hlf_T hlf, int user_hlattr)
 {
-  if ((hlf != HLF_PSI && hlf != HLF_PNI)
+  if (*text == NUL || (hlf != HLF_PSI && hlf != HLF_PNI)
       || (win_hl_attr(curwin, HLF_PMSI) == win_hl_attr(curwin, HLF_PSI)
           && win_hl_attr(curwin, HLF_PMNI) == win_hl_attr(curwin, HLF_PNI))) {
     return NULL;
@@ -652,89 +654,87 @@ void pum_redraw(void)
             s = p;
           }
           int w = ptr2cells(p);
-
-          if ((*p == NUL) || (*p == TAB) || (totwidth + w > pum_width)) {
-            // Display the text that fits or comes before a Tab.
-            // First convert it to printable characters.
-            char *st;
-            char saved = *p;
-
-            if (saved != NUL) {
-              *p = NUL;
-            }
-            st = transstr(s, true);
-            if (saved != NUL) {
-              *p = saved;
-            }
-
-            int *attrs = NULL;
-            if (item_type == CPT_ABBR) {
-              attrs = pum_compute_text_attrs(st, hlf, pum_array[idx].pum_user_abbr_hlattr);
-            }
-
-            if (pum_rl) {
-              char *rt = reverse_text(st);
-              char *rt_start = rt;
-              int cells = vim_strsize(rt);
-
-              if (cells > pum_width) {
-                do {
-                  cells -= utf_ptr2cells(rt);
-                  MB_PTR_ADV(rt);
-                } while (cells > pum_width);
-
-                if (cells < pum_width) {
-                  // Most left character requires 2-cells but only 1 cell
-                  // is available on screen.  Put a '<' on the left of the
-                  // pum item
-                  *(--rt) = '<';
-                  cells++;
-                }
-              }
-
-              if (attrs == NULL) {
-                grid_line_puts(grid_col - cells + 1, rt, -1, attr);
-              } else {
-                pum_grid_puts_with_attrs(grid_col - cells + 1, cells, rt, -1, attrs);
-              }
-
-              xfree(rt_start);
-              xfree(st);
-              grid_col -= width;
-            } else {
-              if (attrs == NULL) {
-                grid_line_puts(grid_col, st, -1, attr);
-              } else {
-                pum_grid_puts_with_attrs(grid_col, vim_strsize(st), st, -1, attrs);
-              }
-
-              xfree(st);
-              grid_col += width;
-            }
-
-            if (attrs != NULL) {
-              XFREE_CLEAR(attrs);
-            }
-
-            if (*p != TAB) {
-              break;
-            }
-
-            // Display two spaces for a Tab.
-            if (pum_rl) {
-              grid_line_puts(grid_col - 1, "  ", 2, attr);
-              grid_col -= 2;
-            } else {
-              grid_line_puts(grid_col, "  ", 2, attr);
-              grid_col += 2;
-            }
-            totwidth += 2;
-            // start text at next char
-            s = NULL;
-            width = 0;
-          } else {
+          if (*p != NUL && *p != TAB && totwidth + w <= pum_width) {
             width += w;
+            continue;
           }
+
+          // Display the text that fits or comes before a Tab.
+          // First convert it to printable characters.
+          char saved = *p;
+
+          if (saved != NUL) {
+            *p = NUL;
+          }
+          char *st = transstr(s, true);
+          if (saved != NUL) {
+            *p = saved;
+          }
+
+          int *attrs = NULL;
+          if (item_type == CPT_ABBR) {
+            attrs = pum_compute_text_attrs(st, hlf,
+                                           pum_array[idx].pum_user_abbr_hlattr);
+          }
+
+          if (pum_rl) {
+            char *rt = reverse_text(st);
+            char *rt_start = rt;
+            int cells = vim_strsize(rt);
+
+            if (cells > pum_width) {
+              do {
+                cells -= utf_ptr2cells(rt);
+                MB_PTR_ADV(rt);
+              } while (cells > pum_width);
+
+              if (cells < pum_width) {
+                // Most left character requires 2-cells but only 1 cell is available on
+                // screen.  Put a '<' on the left of the pum item.
+                *(--rt) = '<';
+                cells++;
+              }
+            }
+
+            if (attrs == NULL) {
+              grid_line_puts(grid_col - cells + 1, rt, -1, attr);
+            } else {
+              pum_grid_puts_with_attrs(grid_col - cells + 1, cells, rt, -1, attrs);
+            }
+
+            xfree(rt_start);
+            xfree(st);
+            grid_col -= width;
+          } else {
+            if (attrs == NULL) {
+              grid_line_puts(grid_col, st, -1, attr);
+            } else {
+              pum_grid_puts_with_attrs(grid_col, vim_strsize(st), st, -1, attrs);
+            }
+
+            xfree(st);
+            grid_col += width;
+          }
+
+          if (attrs != NULL) {
+            XFREE_CLEAR(attrs);
+          }
+
+          if (*p != TAB) {
+            break;
+          }
+
+          // Display two spaces for a Tab.
+          if (pum_rl) {
+            grid_line_puts(grid_col - 1, "  ", 2, attr);
+            grid_col -= 2;
+          } else {
+            grid_line_puts(grid_col, "  ", 2, attr);
+            grid_col += 2;
+          }
+          totwidth += 2;
+          s = NULL;  // start text at next char
+          width = 0;
         }
       }
 
@@ -787,36 +787,41 @@ void pum_redraw(void)
   }
 }
 
-/// set info text to preview buffer.
+/// Set the informational text in the preview buffer when the completion
+/// item does not include a dedicated preview or popup window.
+///
+/// @param[in]  buf        Buffer where the text will be set.
+/// @param[in]  info       Informational text to display in the preview buffer.
+/// @param[in]  lnum       Where to start the text. Incremented for each added line.
+/// @param[out] max_width  Maximum width of the displayed text.
 static void pum_preview_set_text(buf_T *buf, char *info, linenr_T *lnum, int *max_width)
 {
-  bcount_t inserted_bytes = 0;
-  for (char *p = info; *p != NUL;) {
-    int text_width = 0;
-    char *e = vim_strchr(p, '\n');
-    if (e == NULL) {
-      ml_append_buf(buf, (*lnum)++, p, 0, false);
-      text_width = (int)mb_string2cells(p);
-      if (text_width > *max_width) {
-        *max_width = text_width;
-      }
-      break;
-    }
-    *e = NUL;
-    ml_append_buf(buf, (*lnum)++, p, (int)(e - p + 1), false);
-    inserted_bytes += (bcount_t)strlen(p) + 1;
-    text_width = (int)mb_string2cells(p);
-    if (text_width > *max_width) {
-      *max_width = text_width;
-    }
-    *e = '\n';
-    p = e + 1;
+  Error err = ERROR_INIT;
+  Arena arena = ARENA_EMPTY;
+  Array replacement = ARRAY_DICT_INIT;
+  char *token = NULL;
+  char *line = os_strtok(info, "\n", &token);
+  buf->b_p_ma = true;
+  while (line != NULL) {
+    ADD(replacement, STRING_OBJ(cstr_to_string(line)));
+    (*lnum)++;
+    (*max_width) = MAX(*max_width, (int)mb_string2cells(line));
+    line = os_strtok(NULL, "\n", &token);
   }
-  // delete the empty last line
-  ml_delete_buf(buf, buf->b_ml.ml_line_count, false);
-  if (get_cot_flags() & kOptCotFlagPopup) {
-    extmark_splice(buf, 1, 0, 1, 0, 0, buf->b_ml.ml_line_count, 0, inserted_bytes, kExtmarkNoUndo);
+
+  int original_textlock = textlock;
+  if (textlock > 0) {
+    textlock = 0;
   }
+  nvim_buf_set_lines(0, buf->handle, 0, -1, false, replacement, &arena, &err);
+  textlock = original_textlock;
+  if (ERROR_SET(&err)) {
+    emsg(err.msg);
+    api_clear_error(&err);
+  }
+  arena_mem_free(arena_finish(&arena));
+  api_free_array(replacement);
+  buf->b_p_ma = false;
 }
 
 /// adjust floating info preview window position
@@ -866,14 +871,6 @@ win_T *pum_set_info(int selected, char *info)
     if (!wp) {
       return NULL;
     }
-  } else {
-    // clean exist buffer
-    linenr_T count = wp->w_buffer->b_ml.ml_line_count;
-    while (!buf_is_empty(wp->w_buffer)) {
-      ml_delete_buf(wp->w_buffer, 1, false);
-    }
-    bcount_t deleted_bytes = get_region_bytecount(wp->w_buffer, 1, count, 0, 0);
-    extmark_splice(wp->w_buffer, 1, 0, count, 0, deleted_bytes, 1, 0, 0, kExtmarkNoUndo);
   }
   linenr_T lnum = 0;
   int max_info_width = 0;
@@ -1011,7 +1008,8 @@ static bool pum_set_selected(int n, int repeat)
             && (curbuf->b_nwindows == 1)
             && (curbuf->b_fname == NULL)
             && bt_nofile(curbuf)
-            && (curbuf->b_p_bh[0] == 'w')) {
+            && (curbuf->b_p_bh[0] == 'w')
+            && !use_float) {
           // Already a "wipeout" buffer, make it empty.
           while (!buf_is_empty(curbuf)) {
             ml_delete(1, false);

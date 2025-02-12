@@ -970,6 +970,7 @@ describe('lua stdlib', function()
     )
     eq(NIL, exec_lua("return vim.tbl_get({}, 'missing_key')"))
     eq(NIL, exec_lua('return vim.tbl_get({})'))
+    eq(NIL, exec_lua("return vim.tbl_get({}, nil, 'key')"))
     eq(1, exec_lua("return select('#', vim.tbl_get({}))"))
     eq(1, exec_lua("return select('#', vim.tbl_get({ nested = {} }, 'nested', 'missing_key'))"))
   end)
@@ -3435,7 +3436,6 @@ stack traceback:
     end)
 
     it('can discard input', function()
-      clear()
       -- discard every other normal 'x' command
       exec_lua [[
         n_key = 0
@@ -3461,7 +3461,6 @@ stack traceback:
     end)
 
     it('callback invalid return', function()
-      clear()
       -- second key produces an error which removes the callback
       exec_lua [[
         n_call = 0

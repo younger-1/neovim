@@ -161,7 +161,7 @@ languages like Python and C#. Example: >lua
     local func_with_opts = function(opts)
         local will_do_foo = opts.foo
         local filename = opts.filename
-        ...
+        -- ...
     end
 
     func_with_opts { foo = true, filename = "hello.world" }
@@ -618,20 +618,20 @@ Example: TCP echo-server                                          *tcp-server*
 Multithreading                                            *lua-loop-threading*
 
 Plugins can perform work in separate (os-level) threads using the threading
-APIs in luv, for instance `vim.uv.new_thread`. Note that every thread
-gets its own separate Lua interpreter state, with no access to Lua globals
-in the main thread. Neither can the state of the editor (buffers, windows,
-etc) be directly accessed from threads.
+APIs in luv, for instance `vim.uv.new_thread`. Each thread has its own
+separate Lua interpreter state, with no access to Lua globals on the main
+thread. Neither can the editor state (buffers, windows, etc) be directly
+accessed from threads.
 
-A subset of the `vim.*` API is available in threads. This includes:
+A subset of the `vim.*` stdlib is available in threads, including:
 
 - `vim.uv` with a separate event loop per thread.
 - `vim.mpack` and `vim.json` (useful for serializing messages between threads)
 - `require` in threads can use Lua packages from the global |package.path|
 - `print()` and `vim.inspect`
 - `vim.diff`
-- most utility functions in `vim.*` for working with pure Lua values
-  like `vim.split`, `vim.tbl_*`, `vim.list_*`, and so on.
+- Most utility functions in `vim.*` that work with pure Lua values, like
+  `vim.split`, `vim.tbl_*`, `vim.list_*`, etc.
 - `vim.is_thread()` returns true from a non-main thread.
 
 
@@ -685,6 +685,8 @@ vim.hl.range({bufnr}, {ns}, {higroup}, {start}, {finish}, {opts})
                      whether the range is end-inclusive
                    • {priority}? (`integer`, default:
                      `vim.hl.priorities.user`) Highlight priority
+                   • {timeout}? (`integer`, default: -1 no timeout) Time in ms
+                     before highlight is cleared
 
 
 ==============================================================================
@@ -1299,7 +1301,7 @@ global value of a |global-local| option, see |:setglobal|.
 
 
 A special interface |vim.opt| exists for conveniently interacting with list-
-and map-style option from Lua: It allows accessing them as Lua tables and
+and map-style options from Lua: It allows accessing them as Lua tables and
 offers object-oriented method for adding and removing entries.
 
     Examples: ~
@@ -1505,7 +1507,7 @@ vim.wo[{winid}][{bufnr}]                                              *vim.wo*
 Lua module: vim                                                      *lua-vim*
 
 vim.cmd({command})                                                 *vim.cmd()*
-    Executes Vim script commands.
+    Executes Vimscript (|Ex-commands|).
 
     Note that `vim.cmd` can be indexed with a command name to return a
     callable function to the command.
@@ -1539,9 +1541,9 @@ vim.cmd({command})                                                 *vim.cmd()*
 
     Parameters: ~
       • {command}  (`string|table`) Command(s) to execute. If a string,
-                   executes multiple lines of Vim script at once. In this
-                   case, it is an alias to |nvim_exec2()|, where `opts.output`
-                   is set to false. Thus it works identical to |:source|. If a
+                   executes multiple lines of Vimscript at once. In this case,
+                   it is an alias to |nvim_exec2()|, where `opts.output` is
+                   set to false. Thus it works identical to |:source|. If a
                    table, executes a single command. In this case, it is an
                    alias to |nvim_cmd()| where `opts` is empty.
 
@@ -1805,7 +1807,7 @@ vim.system({cmd}, {opts}, {on_exit})                            *vim.system()*
 
         -- Runs synchronously:
         local obj = vim.system({'echo', 'hello'}, { text = true }):wait()
-        -- { code = 0, signal = 0, stdout = 'hello', stderr = '' }
+        -- { code = 0, signal = 0, stdout = 'hello\n', stderr = '' }
 <
 
     See |uv.spawn()| for more details. Note: unlike |uv.spawn()|, vim.system
@@ -2428,7 +2430,7 @@ vim.validate({name}, {value}, {validator}, {optional}, {message})
          function vim.startswith(s, prefix)
           vim.validate('s', s, 'string')
           vim.validate('prefix', prefix, 'string')
-          ...
+          -- ...
         end
 <
     2. `vim.validate(spec)` (deprecated) where `spec` is of type
@@ -2442,7 +2444,7 @@ vim.validate({name}, {value}, {validator}, {optional}, {message})
             age={age, 'number'},
             hobbies={hobbies, 'table'},
           }
-          ...
+          -- ...
         end
 <
 
@@ -2983,6 +2985,7 @@ vim.fs.dir({path}, {opts})                                      *vim.fs.dir()*
                 • skip: (fun(dir_name: string): boolean)|nil Predicate to
                   control traversal. Return false to stop searching the
                   current directory. Only useful when depth > 1
+                • follow: boolean|nil Follow symbolic links. (default: true)
 
     Return: ~
         (`Iterator`) over items in {path}. Each iteration yields two values:
@@ -3024,7 +3027,7 @@ vim.fs.find({names}, {opts})                                   *vim.fs.find()*
 
         -- get all files ending with .cpp or .hpp inside lib/
         local cpp_hpp = vim.fs.find(function(name, path)
-          return name:match('.*%.[ch]pp$') and path:match('[/\\\\]lib$')
+          return name:match('.*%.[ch]pp$') and path:match('[/\\]lib$')
         end, {limit = math.huge, type = 'file'})
 <
 
@@ -3038,8 +3041,10 @@ vim.fs.find({names}, {opts})                                   *vim.fs.find()*
                  If {names} is a function, it is called for each traversed
                  item with args:
                  • name: base name of the current item
-                 • path: full path of the current item The function should
-                   return `true` if the given item is considered a match.
+                 • path: full path of the current item
+
+                 The function should return `true` if the given item is
+                 considered a match.
       • {opts}   (`table`) Optional keyword arguments:
                  • {path}? (`string`) Path to begin searching from. If
                    omitted, the |current-directory| is used.
@@ -3053,6 +3058,8 @@ vim.fs.find({names}, {opts})                                   *vim.fs.find()*
                  • {limit}? (`number`, default: `1`) Stop the search after
                    finding this many matches. Use `math.huge` to place no
                    limit on the number of matches.
+                 • {follow}? (`boolean`, default: `true`) Follow symbolic
+                   links.
 
     Return: ~
         (`string[]`) Normalized paths |vim.fs.normalize()| of all matching
@@ -3146,6 +3153,23 @@ vim.fs.parents({start})                                     *vim.fs.parents()*
     Return (multiple): ~
         (`fun(_, dir: string): string?`) Iterator
         (`nil`)
+        (`string?`)
+
+vim.fs.relpath({base}, {target}, {opts})                    *vim.fs.relpath()*
+    Gets `target` path relative to `base`, or `nil` if `base` is not an
+    ancestor.
+
+    Example: >lua
+        vim.fs.relpath('/var', '/var/lib') -- 'lib'
+        vim.fs.relpath('/var', '/usr/bin') -- nil
+<
+
+    Parameters: ~
+      • {base}    (`string`)
+      • {target}  (`string`)
+      • {opts}    (`table?`) Reserved for future use
+
+    Return: ~
         (`string?`)
 
 vim.fs.rm({path}, {opts})                                        *vim.fs.rm()*

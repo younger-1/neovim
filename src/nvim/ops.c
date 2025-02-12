@@ -4345,6 +4345,7 @@ void charwise_block_prep(pos_T start, pos_T end, struct block_def *bdp, linenr_T
   colnr_T endcol = MAXCOL;
   colnr_T cs, ce;
   char *p = ml_get(lnum);
+  int plen = ml_get_len(lnum);
 
   bdp->startspaces = 0;
   bdp->endspaces = 0;
@@ -4394,7 +4395,7 @@ void charwise_block_prep(pos_T start, pos_T end, struct block_def *bdp, linenr_T
     bdp->textlen = endcol - startcol + inclusive;
   }
   bdp->textcol = startcol;
-  bdp->textstart = p + startcol;
+  bdp->textstart = startcol <= plen ? p + startcol : p;
 }
 
 /// Handle the add/subtract operator.
@@ -5235,18 +5236,37 @@ static void str_to_reg(yankreg_T *y_ptr, MotionType yank_type, const char *str, 
   // Find the end of each line and save it into the array.
   if (str_list) {
     for (char **ss = (char **)str; *ss != NULL; ss++, lnum++) {
-      size_t ss_len = strlen(*ss);
-      pp[lnum] = cbuf_to_string(*ss, ss_len);
-      maxlen = MAX(maxlen, ss_len);
+      pp[lnum] = cstr_to_string(*ss);
+      if (yank_type == kMTBlockWise) {
+        size_t charlen = mb_string2cells(*ss);
+        maxlen = MAX(maxlen, charlen);
+      }
     }
   } else {
     size_t line_len;
     for (const char *start = str, *end = str + len;
          start < end + extraline;
          start += line_len + 1, lnum++) {
-      assert(end - start >= 0);
-      line_len = (size_t)((char *)xmemscan(start, '\n', (size_t)(end - start)) - start);
-      maxlen = MAX(maxlen, line_len);
+      int charlen = 0;
+
+      const char *line_end = start;
+      while (line_end < end) {  // find the end of the line
+        if (*line_end == '\n') {
+          break;
+        }
+        if (yank_type == kMTBlockWise) {
+          charlen += utf_ptr2cells_len(line_end, (int)(end - line_end));
+        }
+
+        if (*line_end == NUL) {
+          line_end++;  // registers can have NUL chars
+        } else {
+          line_end += utf_ptr2len_len(line_end, (int)(end - line_end));
+        }
+      }
+      assert(line_end - start >= 0);
+      line_len = (size_t)(line_end - start);
+      maxlen = MAX(maxlen, (size_t)charlen);
 
       // When appending, copy the previous line and free it after.
       size_t extra = append ? pp[--lnum].size : 0;
@@ -5254,7 +5274,9 @@ static void str_to_reg(yankreg_T *y_ptr, MotionType yank_type, const char *str, 
       if (extra > 0) {
         memcpy(s, pp[lnum].data, extra);
       }
-      memcpy(s + extra, start, line_len);
+      if (line_len > 0) {
+        memcpy(s + extra, start, line_len);
+      }
       size_t s_len = extra + line_len;
 
       if (append) {

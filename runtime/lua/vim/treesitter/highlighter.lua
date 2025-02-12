@@ -2,7 +2,7 @@ local api = vim.api
 local query = vim.treesitter.query
 local Range = require('vim.treesitter._range')
 
-local ns = api.nvim_create_namespace('treesitter/highlighter')
+local ns = api.nvim_create_namespace('nvim.treesitter.highlighter')
 
 ---@alias vim.treesitter.highlighter.Iter fun(end_line: integer|nil): integer, TSNode, vim.treesitter.query.TSMetadata, TSQueryMatch
 
@@ -69,6 +69,7 @@ end
 ---@field private _queries table<string,vim.treesitter.highlighter.Query>
 ---@field tree vim.treesitter.LanguageTree
 ---@field private redraw_count integer
+---@field parsing boolean true if we are parsing asynchronously
 local TSHighlighter = {
   active = {},
 }
@@ -147,8 +148,6 @@ function TSHighlighter.new(tree, opts)
     vim.opt_local.spelloptions:append('noplainbuffer')
   end)
 
-  self.tree:parse()
-
   return self
 end
 
@@ -161,7 +160,10 @@ function TSHighlighter:destroy()
     vim.bo[self.bufnr].spelloptions = self.orig_spelloptions
     vim.b[self.bufnr].ts_highlight = nil
     if vim.g.syntax_on == 1 then
-      api.nvim_exec_autocmds('FileType', { group = 'syntaxset', buffer = self.bufnr })
+      api.nvim_exec_autocmds(
+        'FileType',
+        { group = 'syntaxset', buffer = self.bufnr, modeline = false }
+      )
     end
   end
 end
@@ -299,6 +301,8 @@ local function on_line_impl(self, buf, line, is_spell_nav)
         state.highlighter_query:query():iter_captures(root_node, self.bufnr, line, root_end_row + 1)
     end
 
+    local captures = state.highlighter_query:query().captures
+
     while line >= state.next_row do
       local capture, node, metadata, match = state.iter(line)
 
@@ -311,7 +315,7 @@ local function on_line_impl(self, buf, line, is_spell_nav)
       if capture then
         local hl = state.highlighter_query:get_hl_from_capture(capture)
 
-        local capture_name = state.highlighter_query:query().captures[capture]
+        local capture_name = captures[capture]
 
         local spell, spell_pri_offset = get_spell(capture_name)
 
@@ -382,19 +386,23 @@ function TSHighlighter._on_spell_nav(_, _, buf, srow, _, erow, _)
 end
 
 ---@private
----@param _win integer
 ---@param buf integer
 ---@param topline integer
 ---@param botline integer
-function TSHighlighter._on_win(_, _win, buf, topline, botline)
+function TSHighlighter._on_win(_, _, buf, topline, botline)
   local self = TSHighlighter.active[buf]
-  if not self then
+  if not self or self.parsing then
     return false
   end
-  self.tree:parse({ topline, botline + 1 })
-  self:prepare_highlight_states(topline, botline + 1)
+  self.parsing = self.tree:parse({ topline, botline + 1 }, function(_, trees)
+    if trees and self.parsing then
+      self.parsing = false
+      api.nvim__redraw({ buf = buf, valid = false, flush = false })
+    end
+  end) == nil
   self.redraw_count = self.redraw_count + 1
-  return true
+  self:prepare_highlight_states(topline, botline)
+  return #self._highlight_states > 0
 end
 
 api.nvim_set_decoration_provider(ns, {

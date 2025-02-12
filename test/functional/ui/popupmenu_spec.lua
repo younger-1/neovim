@@ -841,7 +841,7 @@ describe('ui/ext_popupmenu', function()
 
       aunmenu PopUp
       " Delete the default MenuPopup event handler.
-      autocmd! nvim_popupmenu
+      autocmd! nvim.popupmenu
       menu PopUp.foo :let g:menustr = 'foo'<CR>
       menu PopUp.bar :let g:menustr = 'bar'<CR>
       menu PopUp.baz :let g:menustr = 'baz'<CR>
@@ -1680,7 +1680,7 @@ describe('builtin popupmenu', function()
       end)
     end
 
-    describe('floating window preview #popup', function()
+    describe('floating window preview popup', function()
       it('pum popup preview', function()
         --row must > 10
         screen:try_resize(40, 11)
@@ -1693,14 +1693,29 @@ describe('builtin popupmenu', function()
           endfunc
           set omnifunc=Omni_test
           set completeopt=menu,popup
-
           funct Set_info()
             let comp_info = complete_info()
             if comp_info['selected'] == 2
               call nvim__complete_set(comp_info['selected'], {"info": "3info"})
             endif
           endfunc
-          autocmd CompleteChanged * call Set_info()
+          funct TsHl()
+            let comp_info = complete_info()
+            if get(comp_info, 'previewbufnr', 0) > 0
+              call v:lua.vim.treesitter.start(comp_info['preview_bufnr'], 'markdown')
+            endif
+            if comp_info['selected'] == 0
+              call nvim__complete_set(comp_info['selected'], {"info": "```lua\nfunction test()\n  print('foo')\nend\n```"})
+            endif
+          endfunc
+          augroup Group
+            au!
+            autocmd CompleteChanged * :call Set_info()
+          augroup END
+          funct TestTs()
+            autocmd! Group
+            autocmd CompleteChanged * call TsHl()
+          endfunc
         ]])
         feed('Gi<C-x><C-o>')
         --floating preview in right
@@ -2003,6 +2018,90 @@ describe('builtin popupmenu', function()
             {2:-- }{5:match 1 of 3}                         |
           ]],
           }
+        end
+        feed('<C-E><Esc>')
+
+        -- works when scroll with treesitter highlight
+        command('call TestTs()')
+        feed('S<C-x><C-o>')
+        if multigrid then
+          screen:expect({
+            grid = [[
+            ## grid 1
+              [2:----------------------------------------]|*10
+              [3:----------------------------------------]|
+            ## grid 2
+              one^                                     |
+              {1:~                                       }|*9
+            ## grid 3
+              {2:-- }{5:match 1 of 3}                         |
+            ## grid 5
+              {s:one                }|
+              {n:two                }|
+              {n:looooooooooooooong }|
+            ## grid 9
+              {n:```lua         }|
+              {n:function test()}|
+              {n:  print('foo') }|
+              {n:end            }|
+              {n:```            }|
+              {n:               }|
+            ]],
+            float_pos = {
+              [5] = { -1, 'NW', 2, 1, 0, false, 100 },
+              [9] = { 1005, 'NW', 1, 1, 19, false, 50 },
+            },
+            win_viewport = {
+              [2] = {
+                win = 1000,
+                topline = 0,
+                botline = 2,
+                curline = 0,
+                curcol = 3,
+                linecount = 1,
+                sum_scroll_delta = 0,
+              },
+              [9] = {
+                win = 1005,
+                topline = 0,
+                botline = 6,
+                curline = 0,
+                curcol = 0,
+                linecount = 5,
+                sum_scroll_delta = 0,
+              },
+            },
+            win_viewport_margins = {
+              [2] = {
+                bottom = 0,
+                left = 0,
+                right = 0,
+                top = 0,
+                win = 1000,
+              },
+              [9] = {
+                bottom = 0,
+                left = 0,
+                right = 0,
+                top = 0,
+                win = 1005,
+              },
+            },
+          })
+        else
+          screen:expect({
+            grid = [[
+              one^                                     |
+              {s:one                }{n:```lua         }{1:      }|
+              {n:two                function test()}{1:      }|
+              {n:looooooooooooooong   print('foo') }{1:      }|
+              {1:~                  }{n:end            }{1:      }|
+              {1:~                  }{n:```            }{1:      }|
+              {1:~                  }{n:               }{1:      }|
+              {1:~                                       }|*3
+              {2:-- }{5:match 1 of 3}                         |
+            ]],
+          })
         end
       end)
     end)
@@ -3990,7 +4089,7 @@ describe('builtin popupmenu', function()
         set mouse=a mousemodel=popup
 
         " Delete the default MenuPopup event handler.
-        autocmd! nvim_popupmenu
+        autocmd! nvim.popupmenu
         aunmenu PopUp
         menu PopUp.foo :let g:menustr = 'foo'<CR>
         menu PopUp.bar :let g:menustr = 'bar'<CR>
@@ -4847,7 +4946,7 @@ describe('builtin popupmenu', function()
       it(':popup command', function()
         exec([[
           " Delete the default MenuPopup event handler.
-          autocmd! nvim_popupmenu
+          autocmd! nvim.popupmenu
 
           func ChangeMenu()
             aunmenu PopUp.&Paste
@@ -5007,7 +5106,7 @@ describe('builtin popupmenu', function()
         exec([[
           set mousemodel=popup_setpos
           " Delete the default MenuPopup event handler.
-          autocmd! nvim_popupmenu
+          autocmd! nvim.popupmenu
           aunmenu *
           source $VIMRUNTIME/menu.vim
           call setline(1, join(range(20)))
@@ -5311,6 +5410,45 @@ describe('builtin popupmenu', function()
           {1:~                }{n: }{mn:h}{n:ero         }{1: }|
           {1:~                               }|*15
           {2:-- }{5:match 2 of 3}                 |
+        ]])
+
+        feed('<C-E><Esc>')
+      end)
+
+      -- oldtest: Test_pum_highlights_match_with_abbr()
+      it('can highlight matched text with abbr', function()
+        exec([[
+          func Omni_test(findstart, base)
+            if a:findstart
+              return col(".")
+            endif
+            return {
+                  \ 'words': [
+                  \ { 'word': 'foobar', 'abbr': "foobar\t\t!" },
+                  \ { 'word': 'foobaz', 'abbr': "foobaz\t\t!" },
+                  \]}
+          endfunc
+
+          set omnifunc=Omni_test
+          set completeopt=menuone,noinsert
+          hi PmenuMatchSel  guifg=Blue guibg=Grey
+          hi PmenuMatch     guifg=Blue guibg=Plum1
+        ]])
+        feed('i<C-X><C-O>')
+        screen:expect([[
+          ^                                |
+          {s:foobar    !    }{1:                 }|
+          {n:foobaz    !    }{1:                 }|
+          {1:~                               }|*16
+          {2:-- }{5:match 1 of 2}                 |
+        ]])
+        feed('foo')
+        screen:expect([[
+          foo^                             |
+          {ms:foo}{s:bar    !    }{1:                 }|
+          {mn:foo}{n:baz    !    }{1:                 }|
+          {1:~                               }|*16
+          {2:-- }{5:match 1 of 2}                 |
         ]])
 
         feed('<C-E><Esc>')
@@ -5754,6 +5892,156 @@ describe('builtin popupmenu', function()
           {2:-- INSERT --}                    |
         ]])
         feed('<Esc>')
+
+        -- Does not highlight the compl leader
+        command('set cot+=menuone,noselect')
+        feed('S<C-X><C-O>')
+        local pum_start = [[
+          {10:^                                }|
+          {n:foo            }{1:                 }|
+          {n:bar            }{1:                 }|
+          {n:你好           }{1:                 }|
+          {1:~                               }|*15
+          {2:-- }{8:Back at original}             |
+        ]]
+        screen:expect(pum_start)
+        feed('f<C-N>')
+        screen:expect([[
+          {10:f}{9:oo}{10:^                             }|
+          {s:foo            }{1:                 }|
+          {1:~                               }|*17
+          {2:-- }{5:match 1 of 3}                 |
+        ]])
+        feed('<C-E><ESC>')
+
+        command('set cot+=fuzzy')
+        feed('S<C-X><C-O>')
+        screen:expect(pum_start)
+        feed('f<C-N>')
+        screen:expect([[
+          {10:foo^                             }|
+          {s:foo            }{1:                 }|
+          {1:~                               }|*17
+          {2:-- }{5:match 1 of 3}                 |
+        ]])
+        feed('<C-E><Esc>')
+
+        command('set cot-=fuzzy')
+        feed('Sf<C-N>')
+        screen:expect([[
+          {10:f^                               }|
+          {1:~                               }|*18
+          {2:-- }{6:Pattern not found}            |
+        ]])
+        feed('<C-E><Esc>')
+      end)
+
+      -- oldtest: Test_pum_complete_with_special_characters()
+      it('multi-line completion', function()
+        exec([[
+          func Omni_test(findstart, base)
+            if a:findstart
+              return col(".")
+            endif
+            return [#{word: "func ()\n\t\nend", abbr: "function ()",}, #{word: "foobar"}, #{word: "你好\n\t\n我好"}]
+          endfunc
+          set omnifunc=Omni_test
+        ]])
+
+        feed('S<C-X><C-O>')
+        screen:expect([[
+          func ()                         |
+                                          |
+          end^                             |
+          {s:function ()    }{1:                 }|
+          {n:foobar         }{1:                 }|
+          {n:你好^@  ^@我好 }{1:                 }|
+          {1:~                               }|*13
+          {2:-- }{5:match 1 of 3}                 |
+        ]])
+
+        feed('<C-N>')
+        screen:expect([[
+          foobar^                          |
+          {n:function ()    }{1:                 }|
+          {s:foobar         }{1:                 }|
+          {n:你好^@  ^@我好 }{1:                 }|
+          {1:~                               }|*15
+          {2:-- }{5:match 2 of 3}                 |
+        ]])
+        feed('<C-E><ESC>')
+
+        feed('Shello  hero<ESC>hhhhha<C-X><C-O>')
+        screen:expect([[
+          hello func ()                   |
+                                          |
+          end^ hero                        |
+          {1:~    }{s: function ()    }{1:           }|
+          {1:~    }{n: foobar         }{1:           }|
+          {1:~    }{n: 你好^@  ^@我好 }{1:           }|
+          {1:~                               }|*13
+          {2:-- }{5:match 1 of 3}                 |
+        ]])
+
+        feed('<C-N>')
+        screen:expect([[
+          hello foobar^ hero               |
+          {1:~    }{n: function ()    }{1:           }|
+          {1:~    }{s: foobar         }{1:           }|
+          {1:~    }{n: 你好^@  ^@我好 }{1:           }|
+          {1:~                               }|*15
+          {2:-- }{5:match 2 of 3}                 |
+        ]])
+
+        feed('<C-N>')
+        screen:expect([[
+          hello 你好                      |
+                                          |
+          我好^ hero                       |
+          {1:~  }{n: function ()    }{1:             }|
+          {1:~  }{n: foobar         }{1:             }|
+          {1:~  }{s: 你好^@  ^@我好 }{1:             }|
+          {1:~                               }|*13
+          {2:-- }{5:match 3 of 3}                 |
+        ]])
+
+        feed('<C-N>')
+        screen:expect([[
+          hello ^ hero                     |
+          {1:~    }{n: function ()    }{1:           }|
+          {1:~    }{n: foobar         }{1:           }|
+          {1:~    }{n: 你好^@  ^@我好 }{1:           }|
+          {1:~                               }|*15
+          {2:-- }{8:Back at original}             |
+        ]])
+        feed('<C-E><ESC>')
+
+        command(':hi ComplMatchIns guifg=red')
+        feed('S<C-X><C-O>')
+        screen:expect([[
+          {8:func ()}                         |
+          {8:        }                        |
+          {8:end}^                             |
+          {s:function ()    }{1:                 }|
+          {n:foobar         }{1:                 }|
+          {n:你好^@  ^@我好 }{1:                 }|
+          {1:~                               }|*13
+          {2:-- }{5:match 1 of 3}                 |
+        ]])
+        feed('<C-E><ESC>')
+
+        feed('Shello  hero<ESC>hhhhha<C-X><C-O>')
+        screen:expect([[
+          hello {8:func ()}                   |
+          {8:        }                        |
+          {8:end^ }hero                        |
+          {1:~    }{s: function ()    }{1:           }|
+          {1:~    }{n: foobar         }{1:           }|
+          {1:~    }{n: 你好^@  ^@我好 }{1:           }|
+          {1:~                               }|*13
+          {2:-- }{5:match 1 of 3}                 |
+        ]])
+        feed('<C-E><ESC>')
       end)
     end
   end

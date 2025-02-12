@@ -171,7 +171,7 @@ end
 -- 1. Implement clearing `bufstate` and event hooks
 --    when no clients in the buffer support the corresponding method.
 -- 2. Then generalize this state management to other LSP modules.
-local augroup_setup = api.nvim_create_augroup('vim_lsp_folding_range/setup', {})
+local augroup_setup = api.nvim_create_augroup('nvim.lsp.folding_range.setup', {})
 
 --- Initialize `bufstate` and event hooks, then request folding ranges.
 --- Manage their lifecycle within this function.
@@ -197,6 +197,11 @@ local function setup(bufnr)
     -- `on_detach` also runs on buffer reload (`:e`).
     -- Ensure `bufstate` and hooks are cleared to avoid duplication or leftover states.
     on_detach = function()
+      util._cancel_requests({
+        bufnr = bufnr,
+        method = ms.textDocument_foldingRange,
+        type = 'pending',
+      })
       bufstates[bufnr] = nil
       api.nvim_clear_autocmds({ buffer = bufnr, group = augroup_setup })
     end,

@@ -52,7 +52,7 @@ vim.go.ari = vim.go.allowrevins
 --- set to one of CJK locales.  See Unicode Standard Annex #11
 --- (https://www.unicode.org/reports/tr11).
 ---
---- @type string
+--- @type 'single'|'double'
 vim.o.ambiwidth = "single"
 vim.o.ambw = vim.o.ambiwidth
 vim.go.ambiwidth = vim.o.ambiwidth
@@ -208,7 +208,7 @@ vim.go.awa = vim.go.autowriteall
 --- will change.  To use other settings, place ":highlight" commands AFTER
 --- the setting of the 'background' option.
 ---
---- @type string
+--- @type 'light'|'dark'
 vim.o.background = "dark"
 vim.o.bg = vim.o.background
 vim.go.background = vim.o.background
@@ -595,7 +595,7 @@ vim.wo.briopt = vim.wo.breakindentopt
 --- This option is used together with 'buftype' and 'swapfile' to specify
 --- special kinds of buffers.   See `special-buffers`.
 ---
---- @type string
+--- @type ''|'hide'|'unload'|'delete'|'wipe'
 vim.o.bufhidden = ""
 vim.o.bh = vim.o.bufhidden
 vim.bo.bufhidden = vim.o.bufhidden
@@ -658,7 +658,7 @@ vim.bo.bl = vim.bo.buflisted
 --- without saving.  For writing there must be matching `BufWriteCmd|,
 --- |FileWriteCmd` or `FileAppendCmd` autocommands.
 ---
---- @type string
+--- @type ''|'acwrite'|'help'|'nofile'|'nowrite'|'quickfix'|'terminal'|'prompt'
 vim.o.buftype = ""
 vim.o.bt = vim.o.buftype
 vim.bo.buftype = vim.o.buftype
@@ -1087,8 +1087,8 @@ vim.go.cia = vim.go.completeitemalign
 --- 	    "menu" or "menuone". No effect if "longest" is present.
 ---
 ---    noselect Same as "noinsert", except that no menu item is
---- 	    pre-selected. If both "noinsert" and "noselect" are present,
---- 	    "noselect" has precedence.
+--- 	    pre-selected. If both "noinsert" and "noselect" are
+--- 	    present, "noselect" has precedence.
 ---
 ---    fuzzy    Enable `fuzzy-matching` for completion candidates. This
 --- 	    allows for more flexible and intuitive matching, where
@@ -1097,6 +1097,16 @@ vim.go.cia = vim.go.completeitemalign
 --- 	    difference how completion candidates are reduced from the
 --- 	    list of alternatives, but not how the candidates are
 --- 	    collected (using different completion types).
+---
+---    nosort   Disable sorting of completion candidates based on fuzzy
+--- 	    scores when "fuzzy" is enabled. Candidates will appear
+--- 	    in their original order.
+---
+---    preinsert
+--- 	    Preinsert the portion of the first candidate word that is
+--- 	    not part of the current completion leader and using the
+--- 	    `hl-ComplMatchIns` highlight group. Does not work when
+--- 	    "fuzzy" is also included.
 ---
 --- @type string
 vim.o.completeopt = "menu,preview"
@@ -1118,7 +1128,7 @@ vim.go.cot = vim.go.completeopt
 --- For Insert mode completion the buffer-local value is used.  For
 --- command line completion the global value is used.
 ---
---- @type string
+--- @type ''|'slash'|'backslash'
 vim.o.completeslash = ""
 vim.o.csl = vim.o.completeslash
 vim.bo.completeslash = vim.o.completeslash
@@ -1621,11 +1631,20 @@ vim.go.dex = vim.go.diffexpr
 --- Option settings for diff mode.  It can consist of the following items.
 --- All are optional.  Items must be separated by a comma.
 ---
---- 	filler		Show filler lines, to keep the text
---- 			synchronized with a window that has inserted
---- 			lines at the same position.  Mostly useful
---- 			when windows are side-by-side and 'scrollbind'
---- 			is set.
+--- 	algorithm:{text} Use the specified diff algorithm with the
+--- 			internal diff engine. Currently supported
+--- 			algorithms are:
+--- 			myers      the default algorithm
+--- 			minimal    spend extra time to generate the
+--- 				   smallest possible diff
+--- 			patience   patience diff algorithm
+--- 			histogram  histogram diff algorithm
+---
+--- 	closeoff	When a window is closed where 'diff' is set
+--- 			and there is only one window remaining in the
+--- 			same tab page with 'diff' set, execute
+--- 			`:diffoff` in that window.  This undoes a
+--- 			`:diffsplit` command.
 ---
 --- 	context:{n}	Use a context of {n} lines between a change
 --- 			and a fold that contains unchanged lines.
@@ -1635,6 +1654,23 @@ vim.go.dex = vim.go.diffexpr
 --- 			for a deleted line. Set it to a very large
 --- 			value (999999) to disable folding completely.
 --- 			See `fold-diff`.
+---
+--- 	filler		Show filler lines, to keep the text
+--- 			synchronized with a window that has inserted
+--- 			lines at the same position.  Mostly useful
+--- 			when windows are side-by-side and 'scrollbind'
+--- 			is set.
+---
+--- 	foldcolumn:{n}	Set the 'foldcolumn' option to {n} when
+--- 			starting diff mode.  Without this 2 is used.
+---
+--- 	followwrap	Follow the 'wrap' option and leave as it is.
+---
+--- 	horizontal	Start diff mode with horizontal splits (unless
+--- 			explicitly specified otherwise).
+---
+--- 	hiddenoff	Do not use diff mode for a buffer when it
+--- 			becomes hidden.
 ---
 --- 	iblank		Ignore changes where lines are all blank.  Adds
 --- 			the "-B" flag to the "diff" command if
@@ -1648,6 +1684,17 @@ vim.go.dex = vim.go.diffexpr
 --- 	icase		Ignore changes in case of text.  "a" and "A"
 --- 			are considered the same.  Adds the "-i" flag
 --- 			to the "diff" command if 'diffexpr' is empty.
+---
+--- 	indent-heuristic
+--- 			Use the indent heuristic for the internal
+--- 			diff library.
+---
+--- 	internal	Use the internal diff library.  This is
+--- 			ignored when 'diffexpr' is set.  *E960*
+--- 			When running out of memory when writing a
+--- 			buffer this item will be ignored for diffs
+--- 			involving that buffer.  Set the 'verbose'
+--- 			option to see when this happens.
 ---
 --- 	iwhite		Ignore changes in amount of white space.  Adds
 --- 			the "-b" flag to the "diff" command if
@@ -1668,55 +1715,18 @@ vim.go.dex = vim.go.diffexpr
 --- 			of the "diff" command for what this does
 --- 			exactly.
 ---
---- 	horizontal	Start diff mode with horizontal splits (unless
---- 			explicitly specified otherwise).
+--- 	linematch:{n}   Align and mark changes between the most
+--- 			similar lines between the buffers. When the
+--- 			total number of lines in the diff hunk exceeds
+--- 			{n}, the lines will not be aligned because for
+--- 			very large diff hunks there will be a
+--- 			noticeable lag. A reasonable setting is
+--- 			"linematch:60", as this will enable alignment
+--- 			for a 2 buffer diff hunk of 30 lines each,
+--- 			or a 3 buffer diff hunk of 20 lines each.
 ---
 --- 	vertical	Start diff mode with vertical splits (unless
 --- 			explicitly specified otherwise).
----
---- 	closeoff	When a window is closed where 'diff' is set
---- 			and there is only one window remaining in the
---- 			same tab page with 'diff' set, execute
---- 			`:diffoff` in that window.  This undoes a
---- 			`:diffsplit` command.
----
---- 	hiddenoff	Do not use diff mode for a buffer when it
---- 			becomes hidden.
----
---- 	foldcolumn:{n}	Set the 'foldcolumn' option to {n} when
---- 			starting diff mode.  Without this 2 is used.
----
---- 	followwrap	Follow the 'wrap' option and leave as it is.
----
---- 	internal	Use the internal diff library.  This is
---- 			ignored when 'diffexpr' is set.  *E960*
---- 			When running out of memory when writing a
---- 			buffer this item will be ignored for diffs
---- 			involving that buffer.  Set the 'verbose'
---- 			option to see when this happens.
----
---- 	indent-heuristic
---- 			Use the indent heuristic for the internal
---- 			diff library.
----
---- 	linematch:{n}   Enable a second stage diff on each generated
---- 			hunk in order to align lines. When the total
---- 			number of lines in a hunk exceeds {n}, the
---- 			second stage diff will not be performed as
---- 			very large hunks can cause noticeable lag. A
---- 			recommended setting is "linematch:60", as this
---- 			will enable alignment for a 2 buffer diff with
---- 			hunks of up to 30 lines each, or a 3 buffer
---- 			diff with hunks of up to 20 lines each.
----
---- 	algorithm:{text} Use the specified diff algorithm with the
---- 			internal diff engine. Currently supported
---- 			algorithms are:
---- 			myers      the default algorithm
---- 			minimal    spend extra time to generate the
---- 				   smallest possible diff
---- 			patience   patience diff algorithm
---- 			histogram  histogram diff algorithm
 ---
 --- Examples:
 ---
@@ -1729,7 +1739,7 @@ vim.go.dex = vim.go.diffexpr
 ---
 ---
 --- @type string
-vim.o.diffopt = "internal,filler,closeoff"
+vim.o.diffopt = "internal,filler,closeoff,linematch:40"
 vim.o.dip = vim.o.diffopt
 vim.go.diffopt = vim.o.diffopt
 vim.go.dip = vim.go.diffopt
@@ -1824,7 +1834,7 @@ vim.go.dy = vim.go.display
 --- 	hor	horizontally, height of windows is not affected
 --- 	both	width and height of windows is affected
 ---
---- @type string
+--- @type 'both'|'ver'|'hor'
 vim.o.eadirection = "both"
 vim.o.ead = vim.o.eadirection
 vim.go.eadirection = vim.o.eadirection
@@ -1979,6 +1989,16 @@ vim.o.ei = vim.o.eventignore
 vim.go.eventignore = vim.o.eventignore
 vim.go.ei = vim.go.eventignore
 
+--- Similar to 'eventignore' but applies to a particular window and its
+--- buffers, for which window and buffer related autocommands can be
+--- ignored indefinitely without affecting the global 'eventignore'.
+---
+--- @type string
+vim.o.eventignorewin = ""
+vim.o.eiw = vim.o.eventignorewin
+vim.wo.eventignorewin = vim.o.eventignorewin
+vim.wo.eiw = vim.wo.eventignorewin
+
 --- In Insert mode: Use the appropriate number of spaces to insert a
 --- <Tab>.  Spaces are used in indents with the '>' and '<' commands and
 --- when 'autoindent' is on.  To insert a real tab when 'expandtab' is
@@ -2126,7 +2146,7 @@ vim.go.fencs = vim.go.fileencodings
 --- option is set, because the file would be different when written.
 --- This option cannot be changed when 'modifiable' is off.
 ---
---- @type string
+--- @type 'unix'|'dos'|'mac'
 vim.o.fileformat = "unix"
 vim.o.ff = vim.o.fileformat
 vim.bo.fileformat = vim.o.fileformat
@@ -2382,7 +2402,7 @@ vim.go.fcl = vim.go.foldclose
 ---     "[1-9]":      to display a fixed number of columns
 --- See `folding`.
 ---
---- @type string
+--- @type 'auto'|'auto:1'|'auto:2'|'auto:3'|'auto:4'|'auto:5'|'auto:6'|'auto:7'|'auto:8'|'auto:9'|'0'|'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9'
 vim.o.foldcolumn = "0"
 vim.o.fdc = vim.o.foldcolumn
 vim.wo.foldcolumn = vim.o.foldcolumn
@@ -2479,7 +2499,7 @@ vim.wo.fmr = vim.wo.foldmarker
 --- `fold-syntax`	syntax	    Syntax highlighting items specify folds.
 --- `fold-diff`	diff	    Fold text that is not changed.
 ---
---- @type string
+--- @type 'manual'|'expr'|'marker'|'indent'|'syntax'|'diff'
 vim.o.foldmethod = "manual"
 vim.o.fdm = vim.o.foldmethod
 vim.wo.foldmethod = vim.o.foldmethod
@@ -3144,7 +3164,7 @@ vim.bo.ims = vim.bo.imsearch
 --- 'redrawtime') then 'inccommand' is automatically disabled until
 --- `Command-line-mode` is done.
 ---
---- @type string
+--- @type 'nosplit'|'split'|''
 vim.o.inccommand = "nosplit"
 vim.o.icm = vim.o.inccommand
 vim.go.inccommand = vim.o.inccommand
@@ -4354,7 +4374,7 @@ vim.go.mh = vim.go.mousehide
 ---     "g<LeftMouse>"  is "<C-LeftMouse>	(jump to tag under mouse click)
 ---     "g<RightMouse>" is "<C-RightMouse>	("CTRL-T")
 ---
---- @type string
+--- @type 'extend'|'popup'|'popup_setpos'
 vim.o.mousemodel = "popup_setpos"
 vim.o.mousem = vim.o.mousemodel
 vim.go.mousemodel = vim.o.mousemodel
@@ -4845,8 +4865,8 @@ vim.go.redrawdebug = vim.o.redrawdebug
 vim.go.rdb = vim.go.redrawdebug
 
 --- Time in milliseconds for redrawing the display.  Applies to
---- 'hlsearch', 'inccommand', `:match` highlighting and syntax
---- highlighting.
+--- 'hlsearch', 'inccommand', `:match` highlighting, syntax highlighting,
+--- and async `LanguageTree:parse()`.
 --- When redrawing takes more than this many milliseconds no further
 --- matches will be highlighted.
 --- For syntax highlighting the time applies per window.  When over the
@@ -5222,7 +5242,7 @@ vim.go.sect = vim.go.sections
 --- backwards, you cannot include the last character of a line, when
 --- starting in Normal mode and 'virtualedit' empty.
 ---
---- @type string
+--- @type 'inclusive'|'exclusive'|'old'
 vim.o.selection = "inclusive"
 vim.o.sel = vim.o.selection
 vim.go.selection = vim.o.selection
@@ -5788,7 +5808,7 @@ vim.go.sc = vim.go.showcmd
 --- place the text.  Without a custom 'statusline' or 'tabline' it will be
 --- displayed in a convenient location.
 ---
---- @type string
+--- @type 'last'|'statusline'|'tabline'
 vim.o.showcmdloc = "last"
 vim.o.sloc = vim.o.showcmdloc
 vim.go.showcmdloc = vim.o.showcmdloc
@@ -5920,7 +5940,7 @@ vim.go.siso = vim.go.sidescrolloff
 ---    "number"	display signs in the 'number' column. If the number
 --- 		column is not present, then behaves like "auto".
 ---
---- @type string
+--- @type 'yes'|'no'|'auto'|'auto:1'|'auto:2'|'auto:3'|'auto:4'|'auto:5'|'auto:6'|'auto:7'|'auto:8'|'auto:9'|'yes:1'|'yes:2'|'yes:3'|'yes:4'|'yes:5'|'yes:6'|'yes:7'|'yes:8'|'yes:9'|'number'
 vim.o.signcolumn = "auto"
 vim.o.scl = vim.o.signcolumn
 vim.wo.signcolumn = vim.o.signcolumn
@@ -6228,7 +6248,7 @@ vim.go.sb = vim.go.splitbelow
 --- with the previous cursor position. For "screen", the text cannot always
 --- be kept on the same screen line when 'wrap' is enabled.
 ---
---- @type string
+--- @type 'cursor'|'screen'|'topline'
 vim.o.splitkeep = "cursor"
 vim.o.spk = vim.o.splitkeep
 vim.go.splitkeep = vim.o.splitkeep
@@ -6876,7 +6896,7 @@ vim.go.tbs = vim.go.tagbsearch
 ---    match	Match case
 ---    smart	Ignore case unless an upper case letter is used
 ---
---- @type string
+--- @type 'followic'|'ignore'|'match'|'followscs'|'smart'
 vim.o.tagcase = "followic"
 vim.o.tc = vim.o.tagcase
 vim.bo.tagcase = vim.o.tagcase
@@ -7758,7 +7778,7 @@ vim.go.wop = vim.go.wildoptions
 --- key is never used for the menu.
 --- This option is not used for <F10>; on Win32.
 ---
---- @type string
+--- @type 'yes'|'menu'|'no'
 vim.o.winaltkeys = "menu"
 vim.o.wak = vim.o.winaltkeys
 vim.go.winaltkeys = vim.o.winaltkeys

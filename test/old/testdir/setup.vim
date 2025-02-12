@@ -4,6 +4,7 @@ if exists('s:did_load')
   set complete=.,w,b,u,t,i
   set define=^\\s*#\\s*define
   set directory^=.
+  set diffopt=internal,filler,closeoff
   set display=
   set fillchars=vert:\|,foldsep:\|,fold:-
   set formatoptions=tcq
@@ -65,7 +66,7 @@ mapclear
 mapclear!
 aunmenu *
 tlunmenu *
-autocmd! nvim_popupmenu
+autocmd! nvim.popupmenu
 
 " Undo the 'grepprg' and 'grepformat' setting in _defaults.lua.
 set grepprg& grepformat&

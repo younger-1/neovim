@@ -96,53 +96,52 @@ void win_redr_status(win_T *wp)
 
     get_trans_bufname(wp->w_buffer);
     char *p = NameBuff;
-    int len = (int)strlen(p);
+    int plen = (int)strlen(p);
 
     if ((bt_help(wp->w_buffer)
          || wp->w_p_pvw
          || bufIsChanged(wp->w_buffer)
          || wp->w_buffer->b_p_ro)
-        && len < MAXPATHL - 1) {
-      *(p + len++) = ' ';
+        && plen < MAXPATHL - 1) {
+      *(p + plen++) = ' ';        // replace NUL with space
+      *(p + plen) = NUL;          // NUL terminate the string
     }
     if (bt_help(wp->w_buffer)) {
-      snprintf(p + len, MAXPATHL - (size_t)len, "%s", _("[Help]"));
-      len += (int)strlen(p + len);
+      plen += snprintf(p + plen, MAXPATHL - (size_t)plen, "%s", _("[Help]"));
     }
     if (wp->w_p_pvw) {
-      snprintf(p + len, MAXPATHL - (size_t)len, "%s", _("[Preview]"));
-      len += (int)strlen(p + len);
+      plen += snprintf(p + plen, MAXPATHL - (size_t)plen, "%s", _("[Preview]"));
     }
     if (bufIsChanged(wp->w_buffer)) {
-      snprintf(p + len, MAXPATHL - (size_t)len, "%s", "[+]");
-      len += (int)strlen(p + len);
+      plen += snprintf(p + plen, MAXPATHL - (size_t)plen, "%s", "[+]");
     }
     if (wp->w_buffer->b_p_ro) {
-      snprintf(p + len, MAXPATHL - (size_t)len, "%s", _("[RO]"));
-      // len += (int)strlen(p + len);  // dead assignment
+      plen += snprintf(p + plen, MAXPATHL - (size_t)plen, "%s", _("[RO]"));
     }
+    (void)plen;
 
-    int this_ru_col = MAX(ru_col - (Columns - stl_width), (stl_width + 1) / 2);
+    int n = (stl_width + 1) / 2;
+    int this_ru_col = ru_col - (Columns - stl_width);
+    this_ru_col = MAX(this_ru_col, n);
     if (this_ru_col <= 1) {
       p = "<";                // No room for file name!
-      len = 1;
+      plen = 1;
     } else {
       int i;
 
       // Count total number of display cells.
-      int clen = (int)mb_string2cells(p);
+      plen = (int)mb_string2cells(p);
 
       // Find first character that will fit.
       // Going from start to end is much faster for DBCS.
-      for (i = 0; p[i] != NUL && clen >= this_ru_col - 1;
+      for (i = 0; p[i] != NUL && plen >= this_ru_col - 1;
            i += utfc_ptr2len(p + i)) {
-        clen -= utf_ptr2cells(p + i);
+        plen -= utf_ptr2cells(p + i);
       }
-      len = clen;
       if (i > 0) {
         p = p + i - 1;
         *p = '<';
-        len++;
+        plen++;
       }
     }
 
@@ -152,16 +151,17 @@ void win_redr_status(win_T *wp)
     int width = grid_line_puts(off, p, -1, attr);
     grid_line_fill(off + width, off + this_ru_col, fillchar, attr);
 
-    if (get_keymap_str(wp, "<%s>", NameBuff, MAXPATHL)
-        && this_ru_col - len > (int)strlen(NameBuff) + 1) {
-      grid_line_puts(off + this_ru_col - (int)strlen(NameBuff) - 1, NameBuff, -1, attr);
+    int NameBufflen = get_keymap_str(wp, "<%s>", NameBuff, MAXPATHL);
+    if (NameBufflen > 0 && this_ru_col - plen > NameBufflen + 1) {
+      grid_line_puts(off + this_ru_col - NameBufflen - 1, NameBuff, -1, attr);
     }
 
     win_redr_ruler(wp);
 
     // Draw the 'showcmd' information if 'showcmdloc' == "statusline".
     if (p_sc && *p_sloc == 's') {
-      const int sc_width = MIN(10, this_ru_col - len - 2);
+      n = this_ru_col - plen - 2;  // perform the calculation here so we only do it once
+      const int sc_width = MIN(10, n);
 
       if (sc_width > 0) {
         grid_line_puts(off + this_ru_col - sc_width - 1, showcmd_buf, sc_width, attr);
@@ -548,36 +548,40 @@ void win_redr_ruler(win_T *wp)
 #define RULER_BUF_LEN 70
   char buffer[RULER_BUF_LEN];
 
-  // Some sprintfs return the length, some return a pointer.
-  // To avoid portability problems we use strlen() here.
-  vim_snprintf(buffer, RULER_BUF_LEN, "%" PRId64 ",",
-               (wp->w_buffer->b_ml.ml_flags &
-                ML_EMPTY) ? 0 : (int64_t)wp->w_cursor.lnum);
-  size_t len = strlen(buffer);
-  col_print(buffer + len, RULER_BUF_LEN - len,
-            empty_line ? 0 : (int)wp->w_cursor.col + 1,
-            (int)virtcol + 1);
+  int bufferlen = vim_snprintf(buffer, RULER_BUF_LEN, "%" PRId64 ",",
+                               (wp->w_buffer->b_ml.ml_flags & ML_EMPTY)
+                               ? 0
+                               : (int64_t)wp->w_cursor.lnum);
+  bufferlen += col_print(buffer + bufferlen, RULER_BUF_LEN - (size_t)bufferlen,
+                         empty_line ? 0 : (int)wp->w_cursor.col + 1,
+                         (int)virtcol + 1);
 
   // Add a "50%" if there is room for it.
   // On the last line, don't print in the last column (scrolls the
   // screen up on some terminals).
-  int i = (int)strlen(buffer);
-  get_rel_pos(wp, buffer + i + 1, RULER_BUF_LEN - i - 1);
-  int o = i + vim_strsize(buffer + i + 1);
+  char rel_pos[RULER_BUF_LEN];
+  int rel_poslen = get_rel_pos(wp, rel_pos, RULER_BUF_LEN);
+  int n1 = bufferlen + vim_strsize(rel_pos);
   if (wp->w_status_height == 0 && !is_stl_global) {  // can't use last char of screen
-    o++;
+    n1++;
   }
+
+  int this_ru_col = ru_col - (Columns - width);
   // Never use more than half the window/screen width, leave the other half
   // for the filename.
-  int this_ru_col = MAX(ru_col - (Columns - width), (width + 1) / 2);
-  if (this_ru_col + o < width) {
-    // Need at least 3 chars left for get_rel_pos() + NUL.
-    while (this_ru_col + o < width && RULER_BUF_LEN > i + 4) {
-      i += (int)schar_get(buffer + i, fillchar);
-      o++;
+  int n2 = (width + 1) / 2;
+  this_ru_col = MAX(this_ru_col, n2);
+  if (this_ru_col + n1 < width) {
+    // need at least space for rel_pos + NUL
+    while (this_ru_col + n1 < width
+           && RULER_BUF_LEN > bufferlen + rel_poslen + 1) {  // +1 for NUL
+      bufferlen += (int)schar_get(buffer + bufferlen, fillchar);
+      n1++;
     }
-    get_rel_pos(wp, buffer + i, RULER_BUF_LEN - i);
+    bufferlen += vim_snprintf(buffer + bufferlen, RULER_BUF_LEN - (size_t)bufferlen,
+                              "%s", rel_pos);
   }
+  (void)bufferlen;
 
   if (ui_has(kUIMessages) && !part_of_status) {
     MAXSIZE_TEMP_ARRAY(content, 1);
@@ -595,11 +599,11 @@ void win_redr_ruler(win_T *wp)
       did_show_ext_ruler = false;
     }
     // Truncate at window boundary.
-    o = 0;
-    for (i = 0; buffer[i] != NUL; i += utfc_ptr2len(buffer + i)) {
-      o += utf_ptr2cells(buffer + i);
-      if (this_ru_col + o > width) {
-        buffer[i] = NUL;
+    for (n1 = 0, n2 = 0; buffer[n1] != NUL; n1 += utfc_ptr2len(buffer + n1)) {
+      n2 += utf_ptr2cells(buffer + n1);
+      if (this_ru_col + n2 > width) {
+        bufferlen = n1;
+        buffer[bufferlen] = NUL;
         break;
       }
     }
@@ -768,8 +772,7 @@ void draw_tabline(void)
 
       if (modified || wincount > 1) {
         if (wincount > 1) {
-          vim_snprintf(NameBuff, MAXPATHL, "%d", wincount);
-          int len = (int)strlen(NameBuff);
+          int len = vim_snprintf(NameBuff, MAXPATHL, "%d", wincount);
           if (col + len >= Columns - 3) {
             break;
           }
@@ -794,7 +797,8 @@ void draw_tabline(void)
           len -= ptr2cells(p);
           MB_PTR_ADV(p);
         }
-        len = MIN(len, Columns - col - 1);
+        int n = Columns - col - 1;
+        len = MIN(len, n);
 
         grid_line_puts(col, p, -1, attr);
         col += len;
@@ -828,7 +832,8 @@ void draw_tabline(void)
 
     // Draw the 'showcmd' information if 'showcmdloc' == "tabline".
     if (p_sc && *p_sloc == 't') {
-      const int sc_width = MIN(10, (int)Columns - col - (tabcount > 1) * 3);
+      int n = Columns - col - (tabcount > 1) * 3;
+      const int sc_width = MIN(10, n);
 
       if (sc_width > 0) {
         grid_line_puts(Columns - sc_width - (tabcount > 1) * 2,
@@ -922,6 +927,7 @@ int build_stl_str_hl(win_T *wp, char *out, size_t outlen, char *fmt, OptIndex op
   static stl_hlrec_t *stl_hltab = NULL;
   static StlClickRecord *stl_tabtab = NULL;
   static int *stl_separator_locations = NULL;
+  static int curitem = 0;
 
 #define TMPLEN 70
   char buf_tmp[TMPLEN];
@@ -1008,7 +1014,11 @@ int build_stl_str_hl(win_T *wp, char *out, size_t outlen, char *fmt, OptIndex op
   int groupdepth = 0;
   int evaldepth = 0;
 
-  int curitem = 0;
+  // nvim_eval_statusline() can be called from inside a {-expression item so
+  // this may be a recursive call. Keep track of the start index into "stl_items".
+  // During post-processing only treat items filled in a certain recursion level.
+  int evalstart = curitem;
+
   bool prevchar_isflag = true;
   bool prevchar_isitem = false;
 
@@ -1152,9 +1162,11 @@ int build_stl_str_hl(win_T *wp, char *out, size_t outlen, char *fmt, OptIndex op
         }
       }
 
-      // If the group is longer than it is allowed to be
-      // truncate by removing bytes from the start of the group text.
-      if (group_len > stl_items[stl_groupitems[groupdepth]].maxwid) {
+      // If the group is longer than it is allowed to be truncate by removing
+      // bytes from the start of the group text. Don't truncate when item is a
+      // 'statuscolumn' fold item to ensure correctness of the mouse clicks.
+      if (group_len > stl_items[stl_groupitems[groupdepth]].maxwid
+          && stl_items[stl_groupitems[groupdepth]].type != HighlightFold) {
         // { Determine the number of bytes to remove
 
         // Find the first character that should be included.
@@ -1536,7 +1548,7 @@ int build_stl_str_hl(win_T *wp, char *out, size_t outlen, char *fmt, OptIndex op
       // Store the position percentage in our temporary buffer.
       // Note: We cannot store the value in `num` because
       //       `get_rel_pos` can return a named position. Ex: "Top"
-      get_rel_pos(wp, buf_tmp, TMPLEN);
+      (void)get_rel_pos(wp, buf_tmp, TMPLEN);
       str = buf_tmp;
       break;
 
@@ -1564,7 +1576,7 @@ int build_stl_str_hl(win_T *wp, char *out, size_t outlen, char *fmt, OptIndex op
 
     case STL_KEYMAP:
       fillable = false;
-      if (get_keymap_str(wp, "<%s>", buf_tmp, TMPLEN)) {
+      if (get_keymap_str(wp, "<%s>", buf_tmp, TMPLEN) > 0) {
         str = buf_tmp;
       }
       break;
@@ -1628,12 +1640,12 @@ stcsign:
         break;
       }
       foldsignitem = curitem;
+      lnum = (linenr_T)get_vim_var_nr(VV_LNUM);
 
       if (fdc > 0) {
         schar_T fold_buf[9];
-        fill_foldcolumn(wp, stcp->foldinfo, (linenr_T)get_vim_var_nr(VV_LNUM),
-                        0, fdc, NULL, fold_buf);
-        stl_items[curitem].minwid = -(stcp->use_cul ? HLF_CLF : HLF_FC);
+        fill_foldcolumn(wp, stcp->foldinfo, lnum, 0, fdc, NULL, stcp->fold_vcol, fold_buf);
+        stl_items[curitem].minwid = -(use_cursor_line_highlight(wp, lnum) ? HLF_CLF : HLF_FC);
         size_t buflen = 0;
         // TODO(bfredl): this is very backwards. we must support schar_T
         // being used directly in 'statuscolumn'
@@ -1646,18 +1658,18 @@ stcsign:
       for (int i = 0; i < width; i++) {
         stl_items[curitem].start = out_p + signlen;
         if (fdc == 0) {
-          if (stcp->sattrs[i].text[0] && get_vim_var_nr(VV_VIRTNUM) == 0) {
-            SignTextAttrs sattrs = stcp->sattrs[i];
-            signlen += describe_sign_text(buf_tmp + signlen, sattrs.text);
-            stl_items[curitem].minwid = -(stcp->sign_cul_id ? stcp->sign_cul_id : sattrs.hl_id);
+          SignTextAttrs sattr = stcp->sattrs[i];
+          if (sattr.text[0] && get_vim_var_nr(VV_VIRTNUM) == 0) {
+            signlen += describe_sign_text(buf_tmp + signlen, sattr.text);
+            stl_items[curitem].minwid = -(stcp->sign_cul_id ? stcp->sign_cul_id : sattr.hl_id);
           } else {
             buf_tmp[signlen++] = ' ';
             buf_tmp[signlen++] = ' ';
             buf_tmp[signlen] = NUL;
-            stl_items[curitem].minwid = -(stcp->use_cul ? HLF_CLS : HLF_SC);
+            stl_items[curitem].minwid = 0;
           }
         }
-        stl_items[curitem++].type = Highlight;
+        stl_items[curitem++].type = fdc > 0 ? HighlightFold : HighlightSign;
       }
       str = buf_tmp;
       break;
@@ -1942,7 +1954,9 @@ stcsign:
   }
 
   *out_p = NUL;
-  int itemcnt = curitem;
+  // Subtract offset from `itemcnt` and restore `curitem` to previous recursion level.
+  int itemcnt = curitem - evalstart;
+  curitem = evalstart;
 
   // Free the format buffer if we allocated it internally
   if (usefmt != fmt) {
@@ -1968,7 +1982,7 @@ stcsign:
       trunc_p = stl_items[0].start;
       item_idx = 0;
 
-      for (int i = 0; i < itemcnt; i++) {
+      for (int i = evalstart; i < itemcnt + evalstart; i++) {
         if (stl_items[i].type == Trunc) {
           // Truncate at %< stl_items.
           trunc_p = stl_items[i].start;
@@ -1998,9 +2012,9 @@ stcsign:
 
       // Ignore any items in the statusline that occur after
       // the truncation point
-      for (int i = 0; i < itemcnt; i++) {
+      for (int i = evalstart; i < itemcnt + evalstart; i++) {
         if (stl_items[i].start > trunc_p) {
-          for (int j = i; j < itemcnt; j++) {
+          for (int j = i; j < itemcnt + evalstart; j++) {
             if (stl_items[j].type == ClickFunc) {
               XFREE_CLEAR(stl_items[j].cmd);
             }
@@ -2039,7 +2053,7 @@ stcsign:
       //       the truncation marker `<` is not counted.
       int item_offset = trunc_len - 1;
 
-      for (int i = item_idx; i < itemcnt; i++) {
+      for (int i = item_idx; i < itemcnt + evalstart; i++) {
         // Items starting at or after the end of the truncated section need
         // to be moved backwards.
         if (stl_items[i].start >= trunc_end_p) {
@@ -2072,7 +2086,7 @@ stcsign:
     // Find how many separators there are, which we will use when
     // figuring out how many groups there are.
     int num_separators = 0;
-    for (int i = 0; i < itemcnt; i++) {
+    for (int i = evalstart; i < itemcnt + evalstart; i++) {
       if (stl_items[i].type == Separate) {
         // Create an array of the start location for each separator mark.
         stl_separator_locations[num_separators] = i;
@@ -2097,7 +2111,7 @@ stcsign:
         }
 
         for (int item_idx = stl_separator_locations[l] + 1;
-             item_idx < itemcnt;
+             item_idx < itemcnt + evalstart;
              item_idx++) {
           stl_items[item_idx].start += dislocation;
         }
@@ -2111,10 +2125,13 @@ stcsign:
   if (hltab != NULL) {
     *hltab = stl_hltab;
     stl_hlrec_t *sp = stl_hltab;
-    for (int l = 0; l < itemcnt; l++) {
-      if (stl_items[l].type == Highlight) {
+    for (int l = evalstart; l < itemcnt + evalstart; l++) {
+      if (stl_items[l].type == Highlight
+          || stl_items[l].type == HighlightFold || stl_items[l].type == HighlightSign) {
         sp->start = stl_items[l].start;
         sp->userhl = stl_items[l].minwid;
+        unsigned type = stl_items[l].type;
+        sp->item = type == HighlightSign ? STL_SIGNCOL : type == HighlightFold ? STL_FOLDCOL : 0;
         sp++;
       }
     }
@@ -2129,7 +2146,7 @@ stcsign:
   if (tabtab != NULL) {
     *tabtab = stl_tabtab;
     StlClickRecord *cur_tab_rec = stl_tabtab;
-    for (int l = 0; l < itemcnt; l++) {
+    for (int l = evalstart; l < itemcnt + evalstart; l++) {
       if (stl_items[l].type == TabPage) {
         cur_tab_rec->start = stl_items[l].start;
         if (stl_items[l].minwid == 0) {

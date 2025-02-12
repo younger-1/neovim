@@ -139,7 +139,7 @@ local function tokens_to_ranges(data, bufnr, client, request)
 
     if token_type then
       local modifiers = modifiers_from_number(data[i + 4], token_modifiers)
-      local end_char = start_char + data[i + 2]
+      local end_char = start_char + data[i + 2] --- @type integer LuaLS bug
       local buf_line = lines and lines[line + 1] or ''
       local start_col = vim.str_byteindex(buf_line, encoding, start_char, false)
       local end_col = vim.str_byteindex(buf_line, encoding, end_char, false)
@@ -166,7 +166,7 @@ function STHighlighter.new(bufnr)
   local self = setmetatable({}, { __index = STHighlighter })
 
   self.bufnr = bufnr
-  self.augroup = api.nvim_create_augroup('vim_lsp_semantic_tokens:' .. bufnr, { clear = true })
+  self.augroup = api.nvim_create_augroup('nvim.lsp.semantic_tokens:' .. bufnr, { clear = true })
   self.client_state = {}
 
   STHighlighter.active[bufnr] = self
@@ -225,7 +225,7 @@ function STHighlighter:attach(client_id)
   local state = self.client_state[client_id]
   if not state then
     state = {
-      namespace = api.nvim_create_namespace('vim_lsp_semantic_tokens:' .. client_id),
+      namespace = api.nvim_create_namespace('nvim.lsp.semantic_tokens:' .. client_id),
       active_request = {},
       current_result = {},
     }
@@ -337,6 +337,10 @@ function STHighlighter:process_response(response, client, version)
     return
   end
 
+  if not api.nvim_buf_is_valid(self.bufnr) then
+    return
+  end
+
   -- if we have a response to a delta request, update the state of our tokens
   -- appropriately. if it's a full response, just use that
   local tokens ---@type integer[]
@@ -376,8 +380,10 @@ function STHighlighter:process_response(response, client, version)
   current_result.highlights = highlights
   current_result.namespace_cleared = false
 
-  -- redraw all windows displaying buffer
-  api.nvim__redraw({ buf = self.bufnr, valid = true })
+  -- redraw all windows displaying buffer (if still valid)
+  if api.nvim_buf_is_valid(self.bufnr) then
+    api.nvim__redraw({ buf = self.bufnr, valid = true })
+  end
 end
 
 --- @param bufnr integer
@@ -805,7 +811,7 @@ function M._refresh(err, _, ctx)
   return vim.NIL
 end
 
-local namespace = api.nvim_create_namespace('vim_lsp_semantic_tokens')
+local namespace = api.nvim_create_namespace('nvim.lsp.semantic_tokens')
 api.nvim_set_decoration_provider(namespace, {
   on_win = function(_, _, bufnr, topline, botline)
     local highlighter = STHighlighter.active[bufnr]

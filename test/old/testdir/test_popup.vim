@@ -1519,6 +1519,39 @@ func Test_pum_highlights_match()
   call StopVimInTerminal(buf)
 endfunc
 
+func Test_pum_highlights_match_with_abbr()
+  CheckScreendump
+  let lines =<< trim END
+    func Omni_test(findstart, base)
+      if a:findstart
+        return col(".")
+      endif
+      return {
+            \ 'words': [
+            \ { 'word': 'foobar', 'abbr': "foobar\t\t!" },
+            \ { 'word': 'foobaz', 'abbr': "foobaz\t\t!" },
+            \]}
+    endfunc
+
+    set omnifunc=Omni_test
+    set completeopt=menuone,noinsert
+    hi PmenuMatchSel  ctermfg=6 ctermbg=7
+    hi PmenuMatch     ctermfg=4 ctermbg=225
+  END
+  call writefile(lines, 'Xscript', 'D')
+  let  buf = RunVimInTerminal('-S Xscript', {})
+  call TermWait(buf)
+  call term_sendkeys(buf, "i\<C-X>\<C-O>")
+  call TermWait(buf, 50)
+  call term_sendkeys(buf, "foo")
+  call VerifyScreenDump(buf, 'Test_pum_highlights_19', {})
+
+  call term_sendkeys(buf, "\<C-E>\<Esc>")
+  call TermWait(buf)
+
+  call StopVimInTerminal(buf)
+endfunc
+
 func Test_pum_user_abbr_hlgroup()
   CheckScreendump
   let lines =<< trim END
@@ -1817,6 +1850,27 @@ func Test_pum_matchins_highlight_combine()
   call VerifyScreenDump(buf, 'Test_pum_matchins_combine_06', {})
   call term_sendkeys(buf, "\<Esc>")
 
+  " Does not highlight the compl leader
+  call TermWait(buf)
+  call term_sendkeys(buf, ":set cot+=menuone,noselect\<CR>")
+  call TermWait(buf)
+  call term_sendkeys(buf, "S\<C-X>\<C-O>f\<C-N>")
+  call VerifyScreenDump(buf, 'Test_pum_matchins_combine_07', {})
+  call term_sendkeys(buf, "\<C-E>\<Esc>")
+
+  call term_sendkeys(buf, ":set cot+=fuzzy\<CR>")
+  call TermWait(buf)
+  call term_sendkeys(buf, "S\<C-X>\<C-O>f\<C-N>")
+  call VerifyScreenDump(buf, 'Test_pum_matchins_combine_08', {})
+  call term_sendkeys(buf, "\<C-E>\<Esc>")
+  call TermWait(buf)
+
+  call term_sendkeys(buf, ":set cot-=fuzzy\<CR>")
+  call TermWait(buf)
+  call term_sendkeys(buf, "Sf\<C-N>")
+  call VerifyScreenDump(buf, 'Test_pum_matchins_combine_09', {})
+  call term_sendkeys(buf, "\<C-E>\<Esc>")
+
   call StopVimInTerminal(buf)
 endfunc
 
@@ -1829,6 +1883,61 @@ func Test_popup_completion_many_ctrlp()
   norm! G
   call feedkeys("o" .. repeat("\<c-p>", 100), 'tx')
   bw!
+endfunc
+
+func Test_pum_complete_with_special_characters()
+  CheckScreendump
+
+  let lines =<< trim END
+    func Omni_test(findstart, base)
+      if a:findstart
+        return col(".")
+      endif
+      return [#{word: "func ()\n\t\nend", abbr: "function ()",}, #{word: "foobar"}, #{word: "你好\n\t\n我好"}]
+    endfunc
+    set omnifunc=Omni_test
+  END
+
+  call writefile(lines, 'Xpreviewscript', 'D')
+  let buf = RunVimInTerminal('-S Xpreviewscript', #{rows: 12})
+  call term_sendkeys(buf, "S\<C-X>\<C-O>")
+  call TermWait(buf, 50)
+  call VerifyScreenDump(buf, 'Test_pum_with_special_characters_01', {})
+
+  call term_sendkeys(buf, "\<C-N>")
+  call TermWait(buf, 50)
+  call VerifyScreenDump(buf, 'Test_pum_with_special_characters_02', {})
+  call term_sendkeys(buf, "\<C-E>\<Esc>")
+
+  call term_sendkeys(buf, "Shello  hero\<ESC>hhhhha\<C-X>\<C-O>")
+  call TermWait(buf, 50)
+  call VerifyScreenDump(buf, 'Test_pum_with_special_characters_03', {})
+
+  call term_sendkeys(buf, "\<C-N>")
+  call TermWait(buf, 50)
+  call VerifyScreenDump(buf, 'Test_pum_with_special_characters_04', {})
+
+  call term_sendkeys(buf, "\<C-N>")
+  call TermWait(buf, 50)
+  call VerifyScreenDump(buf, 'Test_pum_with_special_characters_05', {})
+
+  call term_sendkeys(buf, "\<C-N>")
+  call TermWait(buf, 50)
+  call VerifyScreenDump(buf, 'Test_pum_with_special_characters_06', {})
+  call term_sendkeys(buf, "\<C-E>\<Esc>")
+
+  call term_sendkeys(buf, ":hi ComplMatchIns ctermfg=red\<CR>")
+  call TermWait(buf, 50)
+  call term_sendkeys(buf, "S\<C-X>\<C-O>")
+  call VerifyScreenDump(buf, 'Test_pum_with_special_characters_07', {})
+  call term_sendkeys(buf, "\<C-E>\<Esc>")
+
+  call term_sendkeys(buf, "Shello  hero\<ESC>hhhhha\<C-X>\<C-O>")
+  call TermWait(buf, 50)
+  call VerifyScreenDump(buf, 'Test_pum_with_special_characters_08', {})
+  call term_sendkeys(buf, "\<C-E>\<Esc>")
+
+  call StopVimInTerminal(buf)
 endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab
