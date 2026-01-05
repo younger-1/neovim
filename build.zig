@@ -42,6 +42,9 @@ pub fn lazyArtifact(d: *std.Build.Dependency, name: []const u8) ?*std.Build.Step
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+    var threaded: std.Io.Threaded = .init_single_threaded;
+    defer threaded.deinit();
+    const io = threaded.io();
 
     const t = target.result;
     const os_tag = t.os.tag;
@@ -152,6 +155,7 @@ pub fn build(b: *std.Build) !void {
 
     const nlua0 = try build_lua.build_nlua0(
         b,
+        io,
         target_host,
         optimize_host,
         host_use_luajit,
@@ -201,12 +205,12 @@ pub fn build(b: *std.Build) !void {
 
     const src_dir = b.build_root.handle;
     for (subdirs) |s| {
-        var dir = try src_dir.openDir(b.fmt("src/nvim/{s}", .{s}), .{ .iterate = true });
-        defer dir.close();
+        var dir = try src_dir.openDir(io, b.fmt("src/nvim/{s}", .{s}), .{ .iterate = true });
+        defer dir.close(io);
         var it = dir.iterateAssumeFirstIteration();
         const api_export = std.mem.eql(u8, s, "api/");
         const os_check = std.mem.eql(u8, s, "os/");
-        entries: while (try it.next()) |entry| {
+        entries: while (try it.next(io)) |entry| {
             if (entry.name.len < 3) continue;
             if (entry.name[0] < 'a' or entry.name[0] > 'z') continue;
             if (os_check) {
@@ -257,7 +261,7 @@ pub fn build(b: *std.Build) !void {
         .VERSION_STRING = "TODO", // TODO(bfredl): not sure what to put here. summary already in "config_str"
         .CONFIG = config_str,
     });
-    _ = gen_config.addCopyFile(versiondef_step.getOutput(), "auto/versiondef.h"); // run_preprocessor() workaronnd
+    _ = gen_config.addCopyFile(versiondef_step.getOutputFile(), "auto/versiondef.h"); // run_preprocessor() workaronnd
 
     const ptrwidth = t.ptrBitWidth() / 8;
     const sysconfig_step = b.addConfigHeader(.{
@@ -310,7 +314,7 @@ pub fn build(b: *std.Build) !void {
     const system_install_path = b.option([]const u8, "install-path", "Install path (for packagers)");
     const install_path = system_install_path orelse b.install_path;
     const lib_dir = if (system_install_path) |path| b.fmt("{s}/lib", .{path}) else b.lib_dir;
-    _ = gen_config.addCopyFile(sysconfig_step.getOutput(), "auto/config.h"); // run_preprocessor() workaronnd
+    _ = gen_config.addCopyFile(sysconfig_step.getOutputFile(), "auto/config.h"); // run_preprocessor() workaronnd
 
     _ = gen_config.add("auto/pathdef.h", b.fmt(
         \\char *default_vim_dir = "{s}/share/nvim";
@@ -410,6 +414,7 @@ pub fn build(b: *std.Build) !void {
 
     const gen_headers, const funcs_data = try gen.nvim_gen_sources(
         b,
+        io,
         nlua0,
         &nvim_sources,
         &nvim_headers,
@@ -419,7 +424,7 @@ pub fn build(b: *std.Build) !void {
     );
 
     const test_config_step = b.addWriteFiles();
-    _ = test_config_step.add("test/cmakeconfig/paths.lua", try test_config(b));
+    _ = test_config_step.add("test/cmakeconfig/paths.lua", try test_config(b, io));
 
     const test_gen_step = b.step("gen_headers", "debug: output generated headers");
     const config_install = b.addInstallDirectory(.{
@@ -434,56 +439,58 @@ pub fn build(b: *std.Build) !void {
         .install_subdir = "headers/",
     }).step);
 
+    var nvim_exe_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
     const nvim_exe = b.addExecutable(.{
         .name = "nvim",
-        .root_module = b.createModule(.{
-            .target = target,
-            .optimize = optimize,
-            .link_libc = true,
-        }),
+        .root_module = nvim_exe_module,
     });
     nvim_exe.rdynamic = true; // -E
 
     if (system_integration_options.lua) {
         nvim_exe.root_module.linkSystemLibrary(lualib_name, .{});
     } else if (lua) |compile| {
-        nvim_exe.root_module.linkLibrary(compile);
+        nvim_exe_module.linkLibrary(compile);
     }
     if (system_integration_options.uv) {
-        nvim_exe.root_module.linkSystemLibrary("libuv", .{});
-        nvim_exe.root_module.linkSystemLibrary("libluv", .{});
+        nvim_exe_module.linkSystemLibrary("libuv", .{});
+        nvim_exe_module.linkSystemLibrary("libluv", .{});
     } else {
         if (libuv) |compile| nvim_exe.root_module.linkLibrary(compile);
         if (libluv) |compile| nvim_exe.root_module.linkLibrary(compile);
     }
-    if (iconv) |dep| nvim_exe.linkLibrary(dep.artifact("iconv"));
+    if (iconv) |dep| nvim_exe_module.linkLibrary(dep.artifact("iconv"));
     if (system_integration_options.utf8proc) {
-        nvim_exe.root_module.linkSystemLibrary("utf8proc", .{});
+        nvim_exe_module.linkSystemLibrary("utf8proc", .{});
     } else if (utf8proc) |dep| {
-        nvim_exe.root_module.linkLibrary(dep.artifact("utf8proc"));
+        nvim_exe_module.linkLibrary(dep.artifact("utf8proc"));
     }
     if (use_unibilium) {
         if (system_integration_options.unibilium) {
-            nvim_exe.root_module.linkSystemLibrary("unibilium", .{});
+            nvim_exe_module.linkSystemLibrary("unibilium", .{});
         } else if (unibilium) |dep| {
-            nvim_exe.root_module.linkLibrary(dep.artifact("unibilium"));
+            nvim_exe_module.linkLibrary(dep.artifact("unibilium"));
         }
     }
     if (system_integration_options.tree_sitter) {
-        nvim_exe.root_module.linkSystemLibrary("tree-sitter", .{});
+        nvim_exe_module.linkSystemLibrary("tree-sitter", .{});
     } else if (treesitter) |dep| {
-        nvim_exe.root_module.linkLibrary(dep.artifact("tree-sitter"));
+        nvim_exe_module.linkLibrary(dep.artifact("tree-sitter"));
     }
     if (is_windows) {
-        nvim_exe.linkSystemLibrary("netapi32");
+        nvim_exe_module.linkSystemLibrary("netapi32", .{});
     }
-    nvim_exe.addIncludePath(b.path("src"));
-    nvim_exe.addIncludePath(gen_config.getDirectory());
-    nvim_exe.addIncludePath(gen_headers.getDirectory());
+    nvim_exe_module.addIncludePath(b.path("src"));
+    nvim_exe_module.addIncludePath(gen_config.getDirectory());
+    nvim_exe_module.addIncludePath(gen_headers.getDirectory());
     try build_lua.add_lua_modules(
         b,
+        io,
         t,
-        nvim_exe.root_module,
+        nvim_exe_module,
         lpeg,
         use_luajit,
         false,
@@ -492,10 +499,10 @@ pub fn build(b: *std.Build) !void {
 
     var unit_test_sources = try std.ArrayList([]u8).initCapacity(b.allocator, 10);
     if (support_unittests) {
-        var unit_test_fixtures = try src_dir.openDir("test/unit/fixtures/", .{ .iterate = true });
-        defer unit_test_fixtures.close();
+        var unit_test_fixtures = try src_dir.openDir(io, "test/unit/fixtures/", .{ .iterate = true });
+        defer unit_test_fixtures.close(io);
         var it = unit_test_fixtures.iterateAssumeFirstIteration();
-        while (try it.next()) |entry| {
+        while (try it.next(io)) |entry| {
             if (entry.name.len < 3) continue;
             if (std.mem.eql(u8, ".c", entry.name[entry.name.len - 2 ..])) {
                 try unit_test_sources.append(b.allocator, b.fmt("test/unit/fixtures/{s}", .{entry.name}));
@@ -520,9 +527,9 @@ pub fn build(b: *std.Build) !void {
         if (is_windows) "-DUTF8PROC_STATIC" else "",
         if (use_unibilium) "-DHAVE_UNIBILIUM" else "",
     };
-    nvim_exe.addCSourceFiles(.{ .files = src_paths, .flags = &flags });
+    nvim_exe_module.addCSourceFiles(.{ .files = src_paths, .flags = &flags });
 
-    nvim_exe.addCSourceFiles(.{ .files = &.{
+    nvim_exe_module.addCSourceFiles(.{ .files = &.{
         "src/xdiff/xdiffi.c",
         "src/xdiff/xemit.c",
         "src/xdiff/xhistogram.c",
@@ -535,7 +542,7 @@ pub fn build(b: *std.Build) !void {
     }, .flags = &flags });
 
     if (is_windows) {
-        nvim_exe.addWin32ResourceFile(.{ .file = b.path("src/nvim/os/nvim.rc") });
+        nvim_exe_module.addWin32ResourceFile(.{ .file = b.path("src/nvim/os/nvim.rc") });
     }
 
     const nvim_exe_step = b.step("nvim_bin", "only the binary (not a fully working install!)");
@@ -630,10 +637,10 @@ pub fn build(b: *std.Build) !void {
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
+            .link_libc = true,
         }),
     });
-    xxd_exe.addCSourceFile(.{ .file = b.path("src/xxd/xxd.c") });
-    xxd_exe.linkLibC();
+    xxd_exe.root_module.addCSourceFile(.{ .file = b.path("src/xxd/xxd.c") });
     test_deps.dependOn(&b.addInstallArtifact(xxd_exe, .{}).step);
 
     const parser_c = b.dependency("treesitter_c", .{ .target = target, .optimize = optimize_ts });
@@ -686,28 +693,29 @@ pub fn test_fixture(
     optimize: std.builtin.OptimizeMode,
     flags: []const []const u8,
 ) *std.Build.Step {
+    var root_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
     const fixture = b.addExecutable(.{
         .name = name,
-        .root_module = b.createModule(.{
-            .target = target,
-            .optimize = optimize,
-        }),
+        .root_module = root_module,
     });
     const source = if (std.mem.eql(u8, name, "pwsh-test")) "shell-test" else name;
     if (std.mem.eql(u8, name, "printenv-test")) {
         fixture.mingw_unicode_entry_point = true; // uses UNICODE on WINDOWS :scream:
     }
 
-    fixture.addCSourceFile(.{
+    root_module.addCSourceFile(.{
         .file = b.path(b.fmt("./test/functional/fixtures/{s}.c", .{source})),
         .flags = flags,
     });
-    fixture.linkLibC();
     if (use_libuv) {
         if (use_system_libuv) {
-            fixture.root_module.linkSystemLibrary("libuv", .{});
+            root_module.linkSystemLibrary("libuv", .{});
         } else if (libuv) |uv| {
-            fixture.linkLibrary(uv);
+            root_module.linkLibrary(uv);
         }
     }
     return &b.addInstallArtifact(fixture, .{}).step;
@@ -722,18 +730,19 @@ pub fn add_ts_parser(
     optimize: std.builtin.OptimizeMode,
     path: enum { test_, install },
 ) *std.Build.Step {
+    var root_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
     const parser = b.addLibrary(.{
         .name = name,
-        .root_module = b.createModule(.{
-            .target = target,
-            .optimize = optimize,
-        }),
         .linkage = .dynamic,
+        .root_module = root_module,
     });
-    parser.addCSourceFile(.{ .file = parser_dir.path(b, "src/parser.c") });
-    if (scanner) parser.addCSourceFile(.{ .file = parser_dir.path(b, "src/scanner.c") });
-    parser.addIncludePath(parser_dir.path(b, "src"));
-    parser.linkLibC();
+    root_module.addCSourceFile(.{ .file = parser_dir.path(b, "src/parser.c") });
+    if (scanner) root_module.addCSourceFile(.{ .file = parser_dir.path(b, "src/scanner.c") });
+    root_module.addIncludePath(parser_dir.path(b, "src"));
 
     switch (path) {
         .install => {
@@ -784,9 +793,10 @@ fn replace_backslashes(b: *std.Build, input: []const u8) ![]const u8 {
         input;
 }
 
-pub fn test_config(b: *std.Build) ![]u8 {
-    var buf: [std.fs.max_path_bytes]u8 = undefined;
-    const src_path = try b.build_root.handle.realpath(".", &buf);
+pub fn test_config(b: *std.Build, io: std.Io) ![]u8 {
+    var buf: [std.fs.max_path_bytes]u8 = std.mem.zeroes([std.fs.max_path_bytes]u8);
+    _ = try b.build_root.handle.realPath(io, &buf);
+    const src_path = std.mem.span(@as([*:0]u8, @ptrCast(&buf)));
 
     // we don't use test/cmakeconfig/paths.lua.in because it contains cmake specific logic
     return b.fmt(
