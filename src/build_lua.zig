@@ -200,7 +200,7 @@ fn findLpeg(b: *std.Build, io: std.Io, target: std.Target) !?[]const u8 {
         "--variable=pc_system_libdirs",
         "--keep-system-cflags",
         "pkg-config",
-    }, &code, .Ignore), "\r\n");
+    }, &code, .ignore), "\r\n");
     var paths: std.ArrayList([]const u8) = try .initCapacity(b.allocator, 0);
     var path_it = std.mem.tokenizeAny(u8, dirs_stdout, " ,");
     while (path_it.next()) |dir| {
