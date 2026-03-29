@@ -78,7 +78,7 @@ DIAGNOSTICS
 
 EDITOR
 
-• todo
+• |:log| for opening log files
 
 EVENTS
 
