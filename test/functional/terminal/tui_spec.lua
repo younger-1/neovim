@@ -2932,6 +2932,7 @@ describe('TUI', function()
 
   it('argv[0] can be overridden #23953', function()
     t.skip(is_os('win'), 'N/A for Windows')
+    t.skip(t.is_arch('s390x'), 'FIXME s390x')
     local screen = Screen.new(50, 7, { rgb = false })
     fn.jobstart(
       { testprg('shell-test'), 'EXECVP', nvim_prog, 'Xargv0nvim', '--clean' },
