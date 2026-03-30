@@ -324,7 +324,7 @@ local options = {
       desc = [=[
         Write the contents of the file, if it has been modified, on each
         `:next`, `:rewind`, `:last`, `:first`, `:previous`, `:stop`,
-        `:suspend`, `:tag`, `:!`, `:make`, CTRL-] and CTRL-^ command; and when
+        `:suspend`, `:tag`, `:!`, `:make`, `:terminal`, CTRL-] and CTRL-^ command; and when
         a `:buffer`, CTRL-O, CTRL-I, '{A-Z0-9}, or `{A-Z0-9} command takes one
         to another file.
         A buffer is not written if it becomes hidden, e.g. when 'bufhidden' is
