@@ -1076,7 +1076,7 @@ static int add_pack_dir_to_rtp(char *fname, bool is_pack)
     buf.size = copy_option_part((char **)&entry, buf.data, MAXPATHL, ",");
 
     // keep track of p_rtp length as we go to make the strlen() below have less work to do
-    p_rtp_len += (*(p_rtp + buf.size) == ',') ? buf.size + 1 : buf.size;
+    p_rtp_len += (*(cur_entry + buf.size) == ',') ? buf.size + 1 : buf.size;
 
     char *p = strstr(buf.data, "after");
     bool is_after = p != NULL
