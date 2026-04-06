@@ -4198,12 +4198,12 @@ vim.net.request({url}, {opts}, {on_response})              *vim.net.request()*
     result to the specified `on_response`, `outpath` or `outbuf`.
 
     Examples: >lua
-        -- Write response body to file
+        -- Write response body to file.
         vim.net.request('https://neovim.io/charter/', {
           outpath = 'vision.html',
         })
 
-        -- Process the response
+        -- Process the response.
         vim.net.request(
           'https://api.github.com/repos/neovim/neovim',
           {},
@@ -4214,14 +4214,14 @@ vim.net.request({url}, {opts}, {on_response})              *vim.net.request()*
           end
         )
 
-        -- Write to both file and current buffer, but cancel it
+        -- Write to both file and current buffer, but cancel it.
         local job = vim.net.request('https://neovim.io/charter/', {
           outpath = 'vision.html',
           outbuf = 0,
         })
         job:close()
 
-        -- Add custom headers in the request
+        -- Add custom headers in the request.
         vim.net.request('https://neovim.io/charter/', {
           headers = { Authorization = 'Bearer XYZ' },
         })
@@ -4237,19 +4237,19 @@ vim.net.request({url}, {opts}, {on_response})              *vim.net.request()*
                          body to.
                        • {outbuf}? (`integer`) Buffer to save the response
                          body to.
-                       • {headers}? (`table<string, string>`) Table of custom
-                         headers to send with the request. Supports basic
-                         key/value header formats and empty headers as
-                         supported by curl. Does not support @filename style,
-                         internal header deletion (e.g: 'Header:').
+                       • {headers}? (`table<string, string>`) Custom headers
+                         to send with the request. Supports basic key/value
+                         headers and empty headers as supported by curl. Does
+                         not support "@filename" style, internal header
+                         deletion ("Header:").
       • {on_response}  (`fun(err: string?, response: vim.net.request.Response?)?`)
                        Callback invoked on request completion. The `body`
                        field in the response parameter contains the raw
                        response data (text or binary).
 
     Return: ~
-        (`{ close: fun() }`) Table with method to cancel, similar to
-        |vim.SystemObj|.
+        (`{ close: fun() }`) Object with `close()` method which cancels the
+        request.
 
 
 ==============================================================================
