@@ -266,3 +266,53 @@ func Test_extraction()
     bw!
   endfor
 endfunc
+
+func Test_extract_with_dotted_dir()
+  call delete('X.txt')
+  call writefile(['when they kiss they spit white noise'], 'X.txt')
+
+  let dirname = tempname()
+  call mkdir(dirname, 'R')
+  let dirname = dirname .. '/foo.bar'
+  call mkdir(dirname, 'R')
+  let tarpath = dirname .. '/Xarchive.tar.gz'
+  call system('tar -czf ' .. tarpath .. ' X.txt')
+  call assert_true(filereadable(tarpath))
+  call assert_equal(0, v:shell_error)
+
+  call delete('X.txt')
+  defer delete(tarpath)
+
+  execute 'e ' .. tarpath
+  call assert_match('X.txt', getline(5))
+  :5
+  normal x
+  call assert_true(filereadable('X.txt'))
+  call assert_equal(['when they kiss they spit white noise'], readfile('X.txt'))
+  call delete('X.txt')
+  bw!
+endfunc
+
+func Test_extract_with_dotted_filename()
+  call delete('X.txt')
+  call writefile(['holiday inn'], 'X.txt')
+
+  let dirname = tempname()
+  call mkdir(dirname, 'R')
+  let tarpath = dirname .. '/Xarchive.foo.tar.gz'
+  call system('tar -czf ' .. tarpath .. ' X.txt')
+  call assert_true(filereadable(tarpath))
+  call assert_equal(0, v:shell_error)
+
+  call delete('X.txt')
+  defer delete(tarpath)
+
+  execute 'e ' .. tarpath
+  call assert_match('X.txt', getline(5))
+  :5
+  normal x
+  call assert_true(filereadable('X.txt'))
+  call assert_equal(['holiday inn'], readfile('X.txt'))
+  call delete('X.txt')
+  bw!
+endfunc
