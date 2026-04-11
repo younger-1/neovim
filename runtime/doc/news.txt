@@ -115,7 +115,8 @@ BUILD
 
 DEFAULTS
 
-• todo
+• Mappings:
+  • |ZR| in Normal mode to |:restart|
 
 DIAGNOSTICS
 
