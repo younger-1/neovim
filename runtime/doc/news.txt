@@ -163,7 +163,7 @@ PERFORMANCE
 
 PLUGINS
 
-• todo
+• provider: add bun support for Node.js plugins
 
 STARTUP
 
