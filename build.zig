@@ -107,7 +107,7 @@ pub fn build(b: *std.Build) !void {
         const optimize_uv = if (optimize == .Debug and target.result.os.tag == .windows) .ReleaseSafe else optimize;
         if (b.lazyDependency("libuv", .{ .target = target, .optimize = optimize_uv })) |dep| {
             libuv = dep.artifact("uv");
-            libluv = try build_lua.build_libluv(b, target, optimize_uv, lua, libuv.?, use_luajit);
+            libluv = try build_lua.build_libluv(b, target, optimize, lua, libuv.?, use_luajit);
 
             libluv_host = if (cross_compiling) libluv_host: {
                 const libuv_dep_host = b.lazyDependency("libuv", .{
