@@ -16,7 +16,7 @@ ARCH_OUTPUT=$ARCH
 TAG=$1
 
 # App name
-APP=io.neovim.nvim
+APP=org.neovim.nvim
 
 ROOT_DIR="$(git rev-parse --show-toplevel)"
 APP_BUILD_DIR="$ROOT_DIR/build"
