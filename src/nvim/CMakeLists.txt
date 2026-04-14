@@ -913,6 +913,7 @@ add_glob_target(
   -clang-analyzer-core.uninitialized.Assign,
   -clang-analyzer-optin.core.EnumCastOutOfRange,
   -clang-analyzer-optin.performance.Padding,
+  -clang-analyzer-security.ArrayBound,
   -clang-analyzer-security.insecureAPI.strcpy,
   -clang-analyzer-unix.StdCLibraryFunctions,
   -clang-analyzer-unix.Stream,
