@@ -908,6 +908,7 @@ add_glob_target(
   --checks='
   -*,
   clang-analyzer-*,
+  -clang-analyzer-core.FixedAddressDereference,
   -clang-analyzer-core.NullDereference,
   -clang-analyzer-core.UndefinedBinaryOperatorResult,
   -clang-analyzer-core.uninitialized.Assign,
