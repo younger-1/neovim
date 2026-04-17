@@ -111,7 +111,7 @@ error('Cannot require a meta file')
 ---
 --- Command modifiers in a structured format. Has the same structure as the
 --- "mods" key of |nvim_parse_cmd()|.
---- @field smods table
+--- @field smods vim.api.keyset.cmd_mods
 
 --- @class vim.api.keyset.command_info
 --- @field name string
