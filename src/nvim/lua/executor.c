@@ -198,36 +198,6 @@ static void nlua_push_eap(lua_State *lstate, exarg_T *eap, const cmdmod_T *cmod)
   lua_setfield(lstate, -2, "smods");
 }
 
-/// Calls Lua to implement an excmd. Passes `eap` + `cmdmod` to Lua as a dict arg, which is arranged
-/// to match the Lua type `vim.api.keyset.create_user_command.command_args`.
-///
-/// @param module  Lua module name, e.g. "vim._core.ex_cmd".
-/// @param func    Function name in the module, e.g. "ex_log".
-/// @param eap     Excmd args.
-/// @param cmod    Excmd mods.
-void nlua_call_excmd(const char *module, const char *func, exarg_T *eap, const cmdmod_T *cmod)
-{
-  lua_State *const lstate = global_lstate;
-
-  lua_getglobal(lstate, "require");
-  lua_pushstring(lstate, module);
-  if (lua_pcall(lstate, 1, 1, 0) != 0) {
-    semsg("E5108: %s", lua_tostring(lstate, -1));
-    lua_pop(lstate, 1);
-    return;
-  }
-  lua_getfield(lstate, -1, func);
-  lua_remove(lstate, -2);
-
-  lua_newtable(lstate);
-  nlua_push_eap(lstate, eap, cmod);
-
-  if (nlua_pcall(lstate, 1, 0)) {
-    semsg("E5108: %s", lua_tostring(lstate, -1));
-    lua_pop(lstate, 1);
-  }
-}
-
 #if __has_feature(address_sanitizer)
 static bool nlua_track_refs = false;
 # define NLUA_TRACK_REFS
@@ -1786,6 +1756,39 @@ void nlua_call_vimfn(const char *module, const char *func, typval_T *argvars, ty
   snprintf(buf, sizeof(buf), "return require('%s').%s(...)", module, func);
 
   nlua_typval_exec(buf, strlen(buf), module, argvars, argcount, false, rettv);
+}
+
+/// Calls Lua to implement an excmd. Passes `eap` + `cmdmod` to Lua as a dict arg, which is arranged
+/// to match the Lua type `vim.api.keyset.create_user_command.command_args`.
+///
+/// @param module  Lua module name, e.g. "vim._core.ex_cmd".
+/// @param func    Function name in the module, e.g. "ex_log".
+/// @param eap     Excmd args.
+/// @param cmod    Excmd mods.
+/// @return true on success, false on error (message already emitted).
+bool nlua_call_excmd(const char *module, const char *func, exarg_T *eap, const cmdmod_T *cmod)
+{
+  lua_State *const lstate = global_lstate;
+
+  lua_getglobal(lstate, "require");
+  lua_pushstring(lstate, module);
+  if (lua_pcall(lstate, 1, 1, 0) != 0) {
+    semsg("E5108: %s", lua_tostring(lstate, -1));
+    lua_pop(lstate, 1);
+    return false;
+  }
+  lua_getfield(lstate, -1, func);
+  lua_remove(lstate, -2);
+
+  lua_newtable(lstate);
+  nlua_push_eap(lstate, eap, cmod);
+
+  if (nlua_pcall(lstate, 1, 0)) {
+    semsg("E5108: %s", lua_tostring(lstate, -1));
+    lua_pop(lstate, 1);
+    return false;
+  }
+  return true;
 }
 
 /// Checks if a LuaRef refers to a function.

@@ -8197,23 +8197,11 @@ void set_pressedreturn(bool val)
 /// ":checkhealth [plugins]"
 static void ex_checkhealth(exarg_T *eap)
 {
-  Error err = ERROR_INIT;
-  MAXSIZE_TEMP_ARRAY(args, 2);
-
-  char mods[1024];
-  size_t mods_len = 0;
-  mods[0] = NUL;
-
-  if (cmdmod.cmod_tab > 0 || cmdmod.cmod_split != 0) {
-    bool multi_mods = false;
-    mods_len = add_win_cmd_modifiers(mods, &cmdmod, &multi_mods);
-    assert(mods_len < sizeof(mods));
-  }
-  ADD_C(args, STRING_OBJ(((String){ .data = mods, .size = mods_len })));
-  ADD_C(args, CSTR_AS_OBJ(eap->arg));
-
-  NLUA_EXEC_STATIC("vim.health._check(...)", args, kRetNilBool, NULL, &err);
-  if (!ERROR_SET(&err)) {
+  // Suppress the Lua error (E5108) so the VIMRUNTIME diagnostic is the primary error.
+  emsg_off++;
+  bool ok = nlua_call_excmd("vim.health", "_check", eap, &cmdmod);
+  emsg_off--;
+  if (ok) {
     return;
   }
 
@@ -8228,8 +8216,6 @@ static void ex_checkhealth(exarg_T *eap)
       emsg(_("E5009: Invalid 'runtimepath'"));
     }
   }
-  semsg_multiline("emsg", err.msg);
-  api_clear_error(&err);
 }
 
 static void ex_terminal(exarg_T *eap)
