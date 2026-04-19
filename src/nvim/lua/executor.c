@@ -1785,8 +1785,7 @@ bool nlua_call_excmd(const char *module, const char *func, exarg_T *eap, const c
   lua_getglobal(lstate, "require");
   lua_pushstring(lstate, module);
   if (lua_pcall(lstate, 1, 1, 0) != 0) {
-    semsg("E5108: %s", lua_tostring(lstate, -1));
-    lua_pop(lstate, 1);
+    nlua_error(lstate, "E5108: %s");
     return false;
   }
   lua_getfield(lstate, -1, func);
@@ -1802,7 +1801,8 @@ bool nlua_call_excmd(const char *module, const char *func, exarg_T *eap, const c
   }
 
   if (nlua_pcall(lstate, nargs, 0)) {
-    semsg("E5108: %s", lua_tostring(lstate, -1));
+    // Not "E5108" because this is a logical/application error, not a "Lua error".
+    emsg(lua_tostring(lstate, -1));
     lua_pop(lstate, 1);
     return false;
   }
