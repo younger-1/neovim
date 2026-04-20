@@ -3382,13 +3382,14 @@ dict_T *create_environment(const dictitem_T *job_env, const bool clear_env, cons
   dict_T *env = tv_dict_alloc();
 
   if (!clear_env) {
-    typval_T temp_env = TV_INITIAL_VALUE;
-    typval_T no_args[] = { { .v_type = VAR_UNKNOWN } };
-    nlua_call_vimfn("vim._core.vimfn", "f_environ", no_args, &temp_env);
-    if (temp_env.v_type == VAR_DICT) {
-      tv_dict_extend(env, temp_env.vval.v_dict, "force");
+    uv_env_item_t *envitems;
+    int envcount;
+    if (uv_os_environ(&envitems, &envcount) == 0) {
+      for (int i = 0; i < envcount; i++) {
+        tv_dict_add_str(env, envitems[i].name, strlen(envitems[i].name), envitems[i].value);
+      }
+      uv_os_free_environ(envitems, envcount);
     }
-    tv_clear(&temp_env);
 
     if (pty) {
       // These env vars shouldn't propagate to the child process. #6764
