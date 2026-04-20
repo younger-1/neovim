@@ -159,6 +159,7 @@ the same range instances now compare equal.
 
 OPTIONS
 
+• 'scrolloffpad' allows keeping 'scrolloff' context at the end of file.
 • 'winpinned' prevents window from closing unless specifically targeted.
 
 PERFORMANCE
