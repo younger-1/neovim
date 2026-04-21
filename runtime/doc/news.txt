@@ -111,7 +111,7 @@ API
 
 BUILD
 
-• todo
+• Building using "zig build" requires zig 0.16.x.
 
 DEFAULTS
 
