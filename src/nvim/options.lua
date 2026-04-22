@@ -7272,7 +7272,7 @@ local options = {
       ]=],
       full_name = 'scrolloffpad',
       scope = { 'global', 'win' },
-      short_desc = N_("keep 'scrolloff' context even at end of file"),
+      short_desc = N_('vertically center cursor even at end of file'),
       type = 'number',
       varname = 'p_sop',
     },
