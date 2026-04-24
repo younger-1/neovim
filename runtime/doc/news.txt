@@ -164,6 +164,8 @@ the same range instances now compare equal.
 
 OPTIONS
 
+• 'ttyfast' can be disabled during startup by setting the environment variable
+  `NVIM_NOTTYFAST` to disable automatic background detection.
 • 'scrolloffpad' allows vertically centering cursor at the end of file.
 • 'winpinned' prevents window from closing unless specifically targeted.
 
