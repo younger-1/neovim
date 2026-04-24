@@ -83,42 +83,32 @@ end
 --- @param src string Plugin source
 --- @return vim.pack.lsp.DocumentLink? # A link structure according to the LSP specification
 local function match_link(line, pattern, link_type, lnum, src)
-  -- Only support GitHub for now. Maybe other forges in the future.
-  local is_github = vim.startswith(src, 'https://github.com/')
-  if (link_type == 'commit' or link_type == 'tag') and not is_github then
-    return nil
-  end
-
   --- @type number?, string?, number?
   local from, match, to = line:match(pattern)
   if not (from and match and to) then
-    return
+    return nil
   end
 
   -- Convert to UTF index used in LSP positions
   from = vim.str_utfindex(line, 'utf-16', from - 1, false)
   to = vim.str_utfindex(line, 'utf-16', to - 2, false)
 
-  -- Reference:
-  -- - https://github.com/neovim/nvim-lspconfig/commit/e146efa
-  -- - https://github.com/neovim/nvim-lspconfig/commit/e146efacbafed3789ac568abcc5a981c5decaa58
-  -- - https://github.com/neovim/nvim-lspconfig/releases/tag/v2.8.0
+  --- @type string?
   local target = match
   if link_type == 'commit' or link_type == 'tag' then
-    local src_noslash = src:gsub('/+$', '')
-    local middle = link_type == 'commit' and 'commit' or 'releases/tag'
-    target = ('%s/%s/%s'):format(src_noslash, middle, match)
+    ---@diagnostic disable-next-line: param-type-mismatch
+    target = require('vim._core.util').get_forge_url(src, match, link_type)
   elseif link_type == 'path' then
     target = vim.uri_from_fname(match)
   end
 
-  return {
-    range = {
-      start = { line = lnum - 1, character = from },
-      ['end'] = { line = lnum - 1, character = to },
-    },
-    target = target,
-  }
+  if target == nil then
+    return nil
+  end
+
+  local start = { line = lnum - 1, character = from }
+  local end_ = { line = lnum - 1, character = to }
+  return { range = { start = start, ['end'] = end_ }, target = target }
 end
 
 --- @param params { textDocument: { uri: string } }

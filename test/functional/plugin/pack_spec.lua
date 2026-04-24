@@ -1473,12 +1473,12 @@ describe('vim.pack', function()
         }
         assert_links(ref_file_links)
 
-        -- Mock using GitHub sources which should provide all links
+        -- Mock using common sources which should provide all links
         local fetch_github = 'https://github.com/user/fetch'
-        local semver_github = 'https://github.com/user/semver'
+        local semver_codeberg = 'https://codeberg.org/user/semver'
         local lines = api.nvim_buf_get_lines(0, 0, -1, false)
         lines[13] = lines[13]:gsub('^(Source: +)(.+)$', '%1' .. fetch_github)
-        lines[26] = lines[26]:gsub('^(Source: +)(.+)$', '%1' .. semver_github)
+        lines[26] = lines[26]:gsub('^(Source: +)(.+)$', '%1' .. semver_codeberg)
         api.nvim_set_option_value('modifiable', true, { buf = 0 })
         api.nvim_buf_set_lines(0, 0, -1, false, lines)
         api.nvim_set_option_value('modifiable', false, { buf = 0 })
@@ -1492,11 +1492,11 @@ describe('vim.pack', function()
           { 18, 2, 18, 8, fetch_github .. '/commit/' .. lines[19]:match('^> (%S+)') },
           { 19, 2, 19, 8, fetch_github .. '/commit/' .. lines[20]:match('^> (%S+)') },
           { 24, 10, 24, 10 + semver_path:len() - 1, semver_path_uri }, -- Path: ...
-          { 25, 10, 25, 39, semver_github }, -- Source: ...
-          { 26, 10, 26, 49, semver_github .. '/commit/' .. lines[27]:match('(%S+) %b()$') }, -- Revision: ...
+          { 25, 10, 25, 41, semver_codeberg }, -- Source: ...
+          { 26, 10, 26, 49, semver_codeberg .. '/commit/' .. lines[27]:match('(%S+) %b()$') }, -- Revision: ...
           -- Should use UTF index
-          { 29, 2, 29, 7, semver_github .. '/releases/tag/v1.0.0' },
-          { 30, 2, 30, 6, semver_github .. '/releases/tag/0.3.1' },
+          { 29, 2, 29, 7, semver_codeberg .. '/src/tag/v1.0.0' },
+          { 30, 2, 30, 6, semver_codeberg .. '/src/tag/0.3.1' },
         }
         assert_links(ref_github_links)
 
