@@ -177,6 +177,8 @@ PERFORMANCE
   Lua.
 • The table holding LSP data is now cleared using `table.clear`,
   thus reducing GC and memory reallocation during each data reset.
+• When parsing the received Content-Length messages,
+  the RPC client will no longer allocate extra strings.
 
 PLUGINS
 
