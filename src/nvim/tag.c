@@ -832,7 +832,7 @@ static int select_tag_match(bool new_tag, bool use_tagstack, int num_matches, ch
 
   typval_T lua_args[] = { items_tv, { .v_type = VAR_UNKNOWN } };
   typval_T rettv = TV_INITIAL_VALUE;
-  nlua_call_vimfn("vim._core.tag", "select", lua_args, &rettv);
+  nlua_call_vimfn("vim._core.tag", "select_tag", lua_args, &rettv);
 
   int idx = 0;
   if (rettv.v_type == VAR_NUMBER) {

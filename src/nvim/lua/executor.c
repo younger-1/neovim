@@ -167,6 +167,14 @@ static void nlua_push_cmdmod(lua_State *lstate, const cmdmod_T *cmod)
   lua_setfield(lstate, -2, "lockmarks");
   lua_pushboolean(lstate, cmod->cmod_flags & CMOD_NOSWAPFILE);
   lua_setfield(lstate, -2, "noswapfile");
+
+  // ":filter[!] /pattern/" modifier (same shape as `nvim_parse_cmd().mods.filter`).
+  lua_newtable(lstate);
+  lua_pushstring(lstate, cmod->cmod_filter_pat ? cmod->cmod_filter_pat : "");
+  lua_setfield(lstate, -2, "pattern");
+  lua_pushboolean(lstate, cmod->cmod_filter_force);
+  lua_setfield(lstate, -2, "force");
+  lua_setfield(lstate, -2, "filter");
 }
 
 /// Pushes common exarg_T fields (bang, line1, line2, …) onto a table at the top of the stack.

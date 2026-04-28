@@ -482,7 +482,7 @@ static int select_spell_suggestion(suginfo_T *sug)
                       .vval.v_string = xstrnsave(sug->su_badptr, (size_t)sug->su_badlen) };
   typval_T lua_args[] = { items_tv, bad_tv, { .v_type = VAR_UNKNOWN } };
   typval_T rettv = TV_INITIAL_VALUE;
-  nlua_call_vimfn("vim._core.spell", "suggest_select", lua_args, &rettv);
+  nlua_call_vimfn("vim._core.spell", "select_suggest", lua_args, &rettv);
 
   int idx = 0;
   if (rettv.v_type == VAR_NUMBER) {

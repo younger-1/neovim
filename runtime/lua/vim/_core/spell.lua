@@ -10,13 +10,12 @@ local M = {}
 --- @field altscore? integer Secondary score (only set when 'spellsuggest' contains "double" or "best").
 --- @field salscore? boolean True if the score came from sound-alike comparison (only set alongside `altscore`).
 
---- Called from `spell_suggest()` (`z=`) to let the user pick from `items` via
---- |vim.ui.select()|.
+--- Implements `spell_suggest()` (`z=`) vim.ui.select().
 ---
 --- @param items vim._core.spell.Suggestion[]
 --- @param bad string The misspelled word being replaced.
---- @return integer? # 1-based index of the chosen suggestion, or nil if cancelled.
-function M.suggest_select(items, bad)
+--- @return integer? # Selected item (1-indexed), or nil if cancelled.
+function M.select_suggest(items, bad)
   return select_blocking(items, {
     prompt = N_('Change "%s" to:'):format(bad),
     kind = 'spell',

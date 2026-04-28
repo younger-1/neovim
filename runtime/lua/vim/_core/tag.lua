@@ -11,12 +11,11 @@ local M = {}
 --- @field extra? string
 --- @field cur boolean True if this is the currently-active tagstack match.
 
---- Called from `do_tag()` (`:tselect`, ambiguous `:tag`, etc.) to let the user
---- pick from `matches` via |vim.ui.select()|.
+--- Implements `do_tag()` (`:tselect`, ambiguous `:tag`, …) via vim.ui.select().
 ---
 --- @param items vim._core.tag.Match[] One per matching tag.
---- @return integer? # 1-based index of the chosen tag, or nil if cancelled.
-function M.select(items)
+--- @return integer? # Selected item (1-indexed), or nil if cancelled.
+function M.select_tag(items)
   local taglen = 18
   for _, m in ipairs(items) do
     taglen = math.max(taglen, vim.fn.strdisplaywidth(m.tag) + 2)

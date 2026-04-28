@@ -11,6 +11,19 @@ local N_ = vim.fn.gettext
 
 local M = {}
 
+--- Apply the `:filter[!] /pattern/` modifier to a single message. See also `message_filtered()`.
+---
+--- @param filter vim.api.keyset.cmd_mods_filter ":filter" mod.
+--- @param msg string Message to test.
+--- @return boolean # True if `msg` should be skipped (not displayed).
+function M.filter(filter, msg)
+  if not filter or filter.pattern == '' then
+    return false
+  end
+  local match = vim.regex(filter.pattern):match_str(msg) ~= nil
+  return match == filter.force
+end
+
 --- @param msg string
 local function echo_err(msg)
   api.nvim_echo({ { msg } }, true, { err = true })
@@ -264,6 +277,45 @@ function M.ex_uptime()
   local uptime = math.floor((now.sec * 1e9 + now.nsec - vim.v.starttime) / 1e9)
   local uptime_display = time.fmt_rtime(uptime)
   api.nvim_echo({ { N_('Up %s'):format(uptime_display) } }, true, {})
+end
+
+--- `:oldfiles` and `:browse oldfiles`. Lists v:oldfiles (plain `:oldfiles`) or shows (async)
+--- vim.ui.select() picker (`:browse oldfiles`) and edits the chosen file.
+--- @param eap vim._core.ExCmdArgs
+function M.ex_oldfiles(eap)
+  local files = vim.v.oldfiles
+  if not files or #files == 0 then
+    api.nvim_echo({ { N_('No old files') } }, false, {})
+    return
+  end
+
+  if eap.smods.browse then
+    vim.ui.select(files, {
+      prompt = N_('Select an oldfile:'),
+      kind = 'oldfiles',
+    }, function(_, idx)
+      if idx then
+        api.nvim_cmd({
+          cmd = 'edit',
+          args = { vim.fn.expand(files[idx]) },
+          magic = { file = false, bar = true }, -- May contain '%' (e.g. swapfiles), don't expand.
+        }, {})
+      end
+    end)
+    return
+  end
+
+  -- `:oldfiles`: list the entries. Honor `:filter /pat/[!]` per entry.
+  local lines = {} ---@type [string][]
+  for i, f in ipairs(files) do
+    if not M.filter(eap.smods.filter, f) then
+      lines[#lines + 1] = { ('%d: %s\n'):format(i, f) }
+    end
+  end
+  if #lines == 0 then
+    return
+  end
+  api.nvim_echo(lines, false, {})
 end
 
 return M

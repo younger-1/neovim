@@ -7352,7 +7352,7 @@ static void f_substitute(typval_T *argvars, typval_T *rettv, EvalFuncData fptr)
 static void f_swapfilelist(typval_T *argvars, typval_T *rettv, EvalFuncData fptr)
 {
   tv_list_alloc_ret(rettv, kListLenUnknown);
-  recover_names(NULL, false, rettv->vval.v_list, 0, NULL);
+  recover_names(NULL, false, rettv->vval.v_list);
 }
 
 /// "swapinfo(swap_filename)" function
