@@ -6,7 +6,8 @@ local uv = vim.uv
 local N_ = vim.fn.gettext
 
 --- Parsed ex command arguments for builtin commands, passed from C via `nlua_call_excmd`.
---- Inherits fields from user command args: args, bang, line1, line2, range, count, reg, smods.
+--- Inherits fields from user command args: name, args, bang, line1, line2, range, count, reg, smods.
+--- Note: For builtin commands `name` is the canonical command name.
 --- @class vim._core.ExCmdArgs : vim.api.keyset.create_user_command.command_args
 
 local M = {}
