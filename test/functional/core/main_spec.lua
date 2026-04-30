@@ -232,6 +232,7 @@ describe('vim._core', function()
       'vim._core.shared',
       'vim._core.spell',
       'vim._core.stringbuffer',
+      'vim._core.swapfile',
       'vim._core.system',
       'vim._core.table',
       'vim._core.tag',
