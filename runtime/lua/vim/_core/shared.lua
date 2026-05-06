@@ -392,7 +392,7 @@ local function make_key_fn(key)
     local field = key
     ---@param v any
     key = function(v)
-      return v and v[field] or nil
+      return v and v[field]
     end
   end
 
